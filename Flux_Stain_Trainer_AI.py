@@ -64,6 +64,15 @@ def stop_training_func():
     global stop_training
     stop_training = True
 
+def focus_on_flux(image_array):
+    mask = (image_array[:,:,0] > 100) & (image_array[:,:,1] > 80) & (image_array[:,:,2] < 100)
+    mask = np.stack([mask]*3, axis=-1)
+    overlay = np.zeros_like(image_array)
+    overlay[mask] = [255, 255, 255]  # using white overlay, you can choose another color
+    alpha = 0.3  # transparency level
+    img_overlay = (image_array * (1 - alpha) + overlay * alpha).astype(np.uint8)
+    return img_overlay
+
 # Function to check if the average color of the image is flux color (yellow-brownish)
 def is_flux_color(image_array):
     r, g, b = np.mean(image_array[:,:,0]), np.mean(image_array[:,:,1]), np.mean(image_array[:,:,2])
