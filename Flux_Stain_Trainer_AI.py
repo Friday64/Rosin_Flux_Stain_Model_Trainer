@@ -64,6 +64,11 @@ def stop_training_func():
     global stop_training
     stop_training = True
 
+# Function to check if the average color of the image is flux color (yellow-brownish)
+def is_flux_color(image_array):
+    r, g, b = np.mean(image_array[:,:,0]), np.mean(image_array[:,:,1]), np.mean(image_array[:,:,2])
+    return 100 < r < 200 and 50 < g < 150 and 0 < b < 100  # Adjust these ranges based on the actual color of the flux
+
 # Function to train machine learning model
 def train_model():
     global with_flux_folder, without_flux_folder, output_folder
@@ -73,9 +78,13 @@ def train_model():
 
     with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
     without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
+
+    # Filter images based on color
+    with_flux_images = [img for img in with_flux_images if is_flux_color(img)]
+    without_flux_images = [img for img in without_flux_images if not is_flux_color(img)]
     
     x_data = np.vstack((with_flux_images, without_flux_images))
-    y_data = np.hstack((with_flux_labels, without_flux_labels))
+    y_data = np.hstack((with_flux_labels[:len(with_flux_images)], without_flux_labels[:len(without_flux_images)]))
     
     x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
     
@@ -88,10 +97,11 @@ def train_model():
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     
     logging.info(f"Training model and saving to {output_folder}")
-    history = model.fit(x_train, y_train, epochs=10, batch_size=32)
+    history = model.fit(x_train, y_train, epochs=10, batch_size=32, validation_data=(x_test, y_test))
     model.save(f"{output_folder}/my_model.h5")
     
     plot_data(history.history['accuracy'], history.history['loss'])
+
 
 # Function to select folder and update corresponding global variable and status label
 def select_folder(var, status_label):
