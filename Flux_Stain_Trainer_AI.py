@@ -88,7 +88,7 @@ def train_model():
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     
     logging.info(f"Training model and saving to {output_folder}")
-    model.fit(x_train, y_train, epochs=10, batch_size=32)
+    history = model.fit(x_train, y_train, epochs=10, batch_size=32)
     model.save(f"{output_folder}/my_model.h5")
     
     plot_data(history.history['accuracy'], history.history['loss'])
