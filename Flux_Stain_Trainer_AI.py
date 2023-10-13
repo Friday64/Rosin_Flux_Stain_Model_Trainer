@@ -79,46 +79,45 @@ def plot_data(accuracy, loss):
 # Function to train machine learning model
 def train_model():
     global with_flux_folder, without_flux_folder, output_folder, stop_training
-    
+
     if not with_flux_folder or not without_flux_folder or not output_folder:
         logging.info("Data or output folder not set.")
-        return
+        return None, None
+
+    with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
+    without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
     
-    try:
-        with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
-        without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
-        
-        x_data = np.vstack((with_flux_images, without_flux_images))
-        y_data = np.hstack((with_flux_labels, without_flux_labels))
-        
-        x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
-        
-        logging.info(f"x_train shape: {x_train.shape}, y_train shape: {y_train.shape}")  # Debugging Line
-        
-        base_model = ResNet50(weights='imagenet', include_top=False)
-        x = base_model.output
-        x = GlobalAveragePooling2D()(x)
-        x = Dropout(0.5)(x)
-        predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
-        model = Model(inputs=base_model.input, outputs=predictions)
-        
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-        
-        callbacks = [
-            tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
-                                             baseline=None, restore_best_weights=True)
-        ]
-        
-        logging.info(f"Training model and saving to {output_folder}")
-        
-        history = model.fit(x_train, y_train, epochs=10, batch_size=32, callbacks=callbacks, validation_split=0.2)
-        
-        model.save(f"{output_folder}/my_model.h5")
-        
-        plot_data([round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss'])
-        
-    except Exception as e:
-        logging.error(f"Error during training: {str(e)}")  # Debugging Line
+    x_data = np.vstack((with_flux_images, without_flux_images))
+    y_data = np.hstack((with_flux_labels, without_flux_labels))
+    
+    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
+    
+    base_model = ResNet50(weights='imagenet', include_top=False)
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.5)(x)
+    predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
+    model = Model(inputs=base_model.input, outputs=predictions)
+    
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
+                                         baseline=None, restore_best_weights=True)
+    ]
+    
+    logging.info(f"Training model and saving to {output_folder}")
+    history = model.fit(x_train, y_train, epochs=10, batch_size=32, callbacks=callbacks, validation_split=0.2)
+    
+    model.save(f"{output_folder}/my_model.h5")
+    
+    return [round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss']
+
+# New function to plot data in the main thread
+def plot_and_train():
+    accuracy, loss = train_model()
+    if accuracy and loss:
+        root.after(0, plot_data, accuracy, loss)  # Schedule plot_data to run in the main thread
 
 # GUI Components
 frame = tk.Frame(root)
@@ -136,7 +135,8 @@ for folder_type in ['With Flux', 'Without Flux', 'Model Output']:
                        command=lambda f=folder_type, s=status_label: select_folder(f, s))
     button.pack()
 
-start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
+# Start and stop buttons
+start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=plot_and_train).start())
 start_button.pack()
 
 stop_button = tk.Button(root, text="Stop Training", command=stop_training_func)
