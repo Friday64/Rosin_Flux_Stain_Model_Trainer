@@ -9,6 +9,7 @@ from keras.applications import ResNet50
 from keras.models import Model
 from keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from keras.regularizers import l2
+from keras.preprocessing.image import ImageDataGenerator  # Newly added import
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -63,7 +64,7 @@ def load_dataset(folder_path, label):
             labels.append(label)
         except Exception as e:
             logging.error(f"Error loading image {img_path}: {str(e)}")
-    return np.array(images), np.array(labels)
+    return np.array(images), np.array(labels, dtype=np.int64)  # Make sure labels are int64
 
 # Function to plot real-time data
 def plot_data(accuracy, loss):
@@ -82,7 +83,7 @@ def train_model():
 
     if not with_flux_folder or not without_flux_folder or not output_folder:
         logging.info("Data or output folder not set.")
-        return None, None
+        return
 
     with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
     without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
@@ -99,29 +100,20 @@ def train_model():
     predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
     model = Model(inputs=base_model.input, outputs=predictions)
     
- # Initialize Adam optimizer with a smaller learning rate
-    adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-
-    model.compile(optimizer=adam_optimizer, loss='binary_crossentropy', metrics=['accuracy'])
-
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     
-    callbacks = [
-        # tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
-             #                            baseline=None, restore_best_weights=True)
-    ]
+    # Commented out EarlyStopping for now
+    # callbacks = [
+    #    tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
+    #                                     baseline=None, restore_best_weights=True)
+    # ]
     
     logging.info(f"Training model and saving to {output_folder}")
-    history = model.fit(x_train, y_train, epochs=10, batch_size=32, callbacks=callbacks, validation_split=0.2)
+    history = model.fit(x_train, y_train, epochs=10, batch_size=32, validation_split=0.2)  # Removed callbacks for now
     
     model.save(f"{output_folder}/my_model.h5")
     
-    return [round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss']
-
-# New function to plot data in the main thread
-def plot_and_train():
-    accuracy, loss = train_model()
-    if accuracy and loss:
-        root.after(0, plot_data, accuracy, loss)  # Schedule plot_data to run in the main thread
+    plot_data([round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss'])
 
 # GUI Components
 frame = tk.Frame(root)
@@ -139,8 +131,7 @@ for folder_type in ['With Flux', 'Without Flux', 'Model Output']:
                        command=lambda f=folder_type, s=status_label: select_folder(f, s))
     button.pack()
 
-# Start and stop buttons
-start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=plot_and_train).start())
+start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
 start_button.pack()
 
 stop_button = tk.Button(root, text="Stop Training", command=stop_training_func)
