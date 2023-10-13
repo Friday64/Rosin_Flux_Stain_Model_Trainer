@@ -99,11 +99,15 @@ def train_model():
     predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
     model = Model(inputs=base_model.input, outputs=predictions)
     
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+ # Initialize Adam optimizer with a smaller learning rate
+    adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+
+    model.compile(optimizer=adam_optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+
     
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
-                                         baseline=None, restore_best_weights=True)
+        # tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
+             #                            baseline=None, restore_best_weights=True)
     ]
     
     logging.info(f"Training model and saving to {output_folder}")
