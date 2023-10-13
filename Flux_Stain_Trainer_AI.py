@@ -1,15 +1,16 @@
+import os
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 import threading
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from keras.preprocessing.image import ImageDataGenerator
+from keras import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 
 # Globals for folder paths
 with_flux_folder = None
 without_flux_folder = None
-output_folder = None
+model_folder = None
 
 # Variable to stop training
 stop_training = False
@@ -21,9 +22,17 @@ def stop():
 
 # Function to train the model
 def train_model():
-    global stop_training
+    global stop_training, model_folder
     stop_training = False
     
+    # Check if folders are selected and not empty
+    if with_flux_folder is None or without_flux_folder is None:
+        print("Folders not selected. Please select both folders.")
+        return
+
+    if not os.listdir(with_flux_folder) or not os.listdir(without_flux_folder):
+        print("One of the selected folders is empty. Please select folders with images.")
+        return
     # Data augmentation with RGB values
     train_datagen = ImageDataGenerator(
         rescale=1.0/255,
@@ -35,7 +44,6 @@ def train_model():
         horizontal_flip=True
     )
     
-    # Prepare training and validation data
     train_generator = train_datagen.flow_from_directory(
         with_flux_folder,
         target_size=(150, 150),
@@ -50,7 +58,6 @@ def train_model():
         class_mode='binary'
     )
     
-    # Build the model
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
         MaxPooling2D(2, 2),
@@ -74,6 +81,9 @@ def train_model():
         callbacks=[lambda epoch, logs: stop_training]  # Early stopping
     )
     
+    if model_folder:
+        model.save(f"{model_folder}/my_model")
+
 # Function to select with_flux folder
 def select_with_flux_folder():
     global with_flux_folder
@@ -85,6 +95,12 @@ def select_without_flux_folder():
     global without_flux_folder
     folder_selected = filedialog.askdirectory()
     without_flux_folder = folder_selected
+
+# Function to select model folder
+def select_model_folder():
+    global model_folder
+    folder_selected = filedialog.askdirectory()
+    model_folder = folder_selected
 
 # Tkinter GUI
 root = tk.Tk()
@@ -99,10 +115,13 @@ button_with_flux_folder.grid(row=0, column=0, sticky=tk.W)
 button_without_flux_folder = ttk.Button(frame, text="Select Without-Flux Folder", command=select_without_flux_folder)
 button_without_flux_folder.grid(row=0, column=1, sticky=tk.W)
 
+button_model_folder = ttk.Button(frame, text="Select Model Folder", command=select_model_folder)
+button_model_folder.grid(row=0, column=2, sticky=tk.W)
+
 button_start = ttk.Button(frame, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
-button_start.grid(row=0, column=2, sticky=tk.W)
+button_start.grid(row=0, column=3, sticky=tk.W)
 
 button_stop = ttk.Button(frame, text="Stop Training", command=stop)
-button_stop.grid(row=0, column=3, sticky=tk.W)
+button_stop.grid(row=0, column=4, sticky=tk.W)
 
 root.mainloop()
