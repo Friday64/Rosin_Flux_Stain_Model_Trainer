@@ -1,26 +1,83 @@
 import os
 import tkinter as tk
-from tkinter import ttk
 from tkinter import filedialog
 import threading
-from keras.preprocessing.image import ImageDataGenerator
-from keras import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+import logging
+import os
+import numpy as np
+import tensorflow as tf
+from keras.applications import ResNet50
+from keras.models import Model
+from keras.layers import Dense, GlobalAveragePooling2D, Dropout
+from keras.regularizers import l2
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+from PIL import Image
 
-# Globals for folder paths
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize Tkinter GUI root window
+root = tk.Tk()
+root.title("Flux Stain Detector")
+
+# Initialize folder variables
 with_flux_folder = None
 without_flux_folder = None
-model_folder = None
+output_folder = None
 
-# Variable to stop training
+# Global variable for stopping the training
 stop_training = False
 
 # Function to stop training
-def stop():
+def stop_training_func():
     global stop_training
     stop_training = True
+    logging.info("User has requested to stop training.")
 
-# Function to train the model
+# Function to select folder and update status label
+def select_folder(folder_type, status_label):
+    folder_selected = filedialog.askdirectory()
+    if folder_selected:
+        status_label.config(text="Selected", fg="green")
+        if folder_type == 'With Flux':
+            global with_flux_folder
+            with_flux_folder = folder_selected
+        elif folder_type == 'Without Flux':
+            global without_flux_folder
+            without_flux_folder = folder_selected
+        elif folder_type == 'Model Output':
+            global output_folder
+            output_folder = folder_selected
+
+# Function to load dataset from folder
+def load_dataset(folder_path, label):
+    images = []
+    labels = []
+    for filename in os.listdir(folder_path):
+        img_path = os.path.join(folder_path, filename)
+        try:
+            img = Image.open(img_path).convert('RGB')
+            img = img.resize((224, 224))
+            img_array = np.array(img)
+            images.append(img_array)
+            labels.append(label)
+        except Exception as e:
+            logging.error(f"Error loading image {img_path}: {str(e)}")
+    return np.array(images), np.array(labels)
+
+# Function to plot real-time data
+def plot_data(accuracy, loss):
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.plot(accuracy)
+    ax1.set_title('Model Accuracy (%)')
+    ax1.set(xlabel='epoch', ylabel='accuracy')
+    ax2.plot(loss)
+    ax2.set_title('Model Loss')
+    ax2.set(xlabel='epoch', ylabel='loss')
+    plt.show()
+
+# Function to train machine learning model
 def train_model():
     global stop_training, model_folder
     stop_training = False
@@ -30,98 +87,55 @@ def train_model():
         print("Folders not selected. Please select both folders.")
         return
 
-    if not os.listdir(with_flux_folder) or not os.listdir(without_flux_folder):
-        print("One of the selected folders is empty. Please select folders with images.")
-        return
-    # Data augmentation with RGB values
-    train_datagen = ImageDataGenerator(
-        rescale=1.0/255,
-        brightness_range=[0.2, 1.0],
-        rotation_range=40,
-        shear_range=0.2,
-        zoom_range=0.2,
-        fill_mode='nearest',
-        horizontal_flip=True
-    )
+    with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
+    without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
     
-    train_generator = train_datagen.flow_from_directory(
-        with_flux_folder,
-        target_size=(150, 150),
-        batch_size=32,
-        class_mode='binary'
-    )
+    x_data = np.vstack((with_flux_images, without_flux_images))
+    y_data = np.hstack((with_flux_labels, without_flux_labels))
     
-    validation_generator = train_datagen.flow_from_directory(
-        without_flux_folder,
-        target_size=(150, 150),
-        batch_size=32,
-        class_mode='binary'
-    )
+    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
     
-    model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
-        MaxPooling2D(2, 2),
-        Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-        Conv2D(128, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-        Flatten(),
-        Dense(512, activation='relu'),
-        Dropout(0.5),
-        Dense(1, activation='sigmoid')
-    ])
+    base_model = ResNet50(weights='imagenet', include_top=False)
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.5)(x)
+    predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
+    model = Model(inputs=base_model.input, outputs=predictions)
     
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     
-    history = model.fit(
-        train_generator,
-        epochs=10,
-        verbose=1,
-        validation_data=validation_generator,
-        callbacks=[lambda epoch, logs: stop_training]  # Early stopping
-    )
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
+                                         baseline=None, restore_best_weights=True)
+    ]
     
-    if model_folder:
-        model.save(f"{model_folder}/my_model")
+    logging.info(f"Training model and saving to {output_folder}")
+    history = model.fit(x_train, y_train, epochs=10, batch_size=32, callbacks=callbacks, validation_split=0.2)
+    
+    model.save(f"{output_folder}/my_model.h5")
+    
+    plot_data([round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss'])
 
-# Function to select with_flux folder
-def select_with_flux_folder():
-    global with_flux_folder
-    folder_selected = filedialog.askdirectory()
-    with_flux_folder = folder_selected
+# GUI Components
+frame = tk.Frame(root)
+frame.pack(pady=20)
 
-# Function to select without_flux folder
-def select_without_flux_folder():
-    global without_flux_folder
-    folder_selected = filedialog.askdirectory()
-    without_flux_folder = folder_selected
+# Folder selection buttons and status labels
+for folder_type in ['With Flux', 'Without Flux', 'Model Output']:
+    folder_frame = tk.Frame(frame)
+    folder_frame.pack(side="left", padx=10)
+    
+    status_label = tk.Label(folder_frame, text="Not Selected", fg="red")
+    status_label.pack(side="bottom")
+    
+    button = tk.Button(folder_frame, text=f"Select {folder_type} Folder",
+                       command=lambda f=folder_type, s=status_label: select_folder(f, s))
+    button.pack()
 
-# Function to select model folder
-def select_model_folder():
-    global model_folder
-    folder_selected = filedialog.askdirectory()
-    model_folder = folder_selected
+start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
+start_button.pack()
 
-# Tkinter GUI
-root = tk.Tk()
-root.title("Flux Stain Trainer")
-
-frame = ttk.Frame(root, padding="10")
-frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
-button_with_flux_folder = ttk.Button(frame, text="Select With-Flux Folder", command=select_with_flux_folder)
-button_with_flux_folder.grid(row=0, column=0, sticky=tk.W)
-
-button_without_flux_folder = ttk.Button(frame, text="Select Without-Flux Folder", command=select_without_flux_folder)
-button_without_flux_folder.grid(row=0, column=1, sticky=tk.W)
-
-button_model_folder = ttk.Button(frame, text="Select Model Folder", command=select_model_folder)
-button_model_folder.grid(row=0, column=2, sticky=tk.W)
-
-button_start = ttk.Button(frame, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
-button_start.grid(row=0, column=3, sticky=tk.W)
-
-button_stop = ttk.Button(frame, text="Stop Training", command=stop)
-button_stop.grid(row=0, column=4, sticky=tk.W)
+stop_button = tk.Button(root, text="Stop Training", command=stop_training_func)
+stop_button.pack()
 
 root.mainloop()
