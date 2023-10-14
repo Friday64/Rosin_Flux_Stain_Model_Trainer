@@ -1,141 +1,88 @@
-import os
-import tkinter as tk
-from tkinter import filedialog
-import threading
-import logging
-import os
+from PIL import Image  # Changed from tkinter Image
+from keras.preprocessing.image import ImageDataGenerator
+from keras import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+import gradio as gr
 import numpy as np
-import tensorflow as tf
-from keras.applications import ResNet50
-from keras.models import Model
-from keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from keras.regularizers import l2
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-from PIL import Image
+import os
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
+# Define your data directory
+data_dir = "./data"
 
-# Initialize Tkinter GUI root window
-root = tk.Tk()
-root.title("Flux Stain Detector")
+# Initialize ImageDataGenerator
+datagen = ImageDataGenerator(
+    rescale=1./255,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
 
-# Initialize folder variables
-with_flux_folder = None
-without_flux_folder = None
-output_folder = None
+# Create a training image generator
+train_generator = datagen.flow_from_directory(
+    data_dir,
+    target_size=(150, 150),
+    batch_size=32,
+    class_mode='binary'
+)
 
-# Global variable for stopping the training
-stop_training = False
+# Model definition
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(512, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
 
-# Function to stop training
-def stop_training_func():
-    global stop_training
-    stop_training = True
-    logging.info("User has requested to stop training.")
+# Model compilation
+model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
-# Function to select folder and update status label
-def select_folder(folder_type, status_label):
-    folder_selected = filedialog.askdirectory()
-    if folder_selected:
-        status_label.config(text="Selected", fg="green")
-        if folder_type == 'With Flux':
-            global with_flux_folder
-            with_flux_folder = folder_selected
-        elif folder_type == 'Without Flux':
-            global without_flux_folder
-            without_flux_folder = folder_selected
-        elif folder_type == 'Model Output':
-            global output_folder
-            output_folder = folder_selected
+# Function to preprocess image
+def preprocess_image(image):
+    image = Image.fromarray(image.astype('uint8'), 'RGB')
+    image = image.resize((150, 150))
+    image_array = np.array(image)
+    image_array = image_array / 255.0
+    image_array = np.expand_dims(image_array, axis=0)
+    return image_array
 
-# Function to load dataset from folder
-def load_dataset(folder_path, label):
-    images = []
-    labels = []
-    for filename in os.listdir(folder_path):
-        img_path = os.path.join(folder_path, filename)
-        try:
-            img = Image.open(img_path).convert('RGB')
-            img = img.resize((224, 224))
-            img_array = np.array(img)
-            images.append(img_array)
-            labels.append(label)
-        except Exception as e:
-            logging.error(f"Error loading image {img_path}: {str(e)}")
-    return np.array(images), np.array(labels)
+# Initialize empty lists to hold images and labels
+collected_images = []
+collected_labels = []
 
-# Function to plot real-time data
-def plot_data(accuracy, loss):
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.plot(accuracy)
-    ax1.set_title('Model Accuracy (%)')
-    ax1.set(xlabel='epoch', ylabel='accuracy')
-    ax2.plot(loss)
-    ax2.set_title('Model Loss')
-    ax2.set(xlabel='epoch', ylabel='loss')
-    plt.show()
+# Function to train on batch
+def train_on_batch(images, labels):
+    history = model.fit(np.vstack(images), labels, epochs=10)
+    print(history.history)  # Just printing metrics for now
 
-# Function to train machine learning model
-def train_model():
-    global stop_training, model_folder
-    stop_training = False
+# Gradio UI function
+def classify_image(image, choice):
+    global collected_images, collected_labels
+
+    # Preprocess image and label
+    preprocessed_image = preprocess_image(image)
+    label = 1 if choice == 'With Flux' else 0
     
-    # Check if folders are selected and not empty
-    if with_flux_folder is None or without_flux_folder is None:
-        print("Folders not selected. Please select both folders.")
-        return
+    # Collect for batch
+    collected_images.append(preprocessed_image)
+    collected_labels.append(label)
 
-    with_flux_images, with_flux_labels = load_dataset(with_flux_folder, 1)
-    without_flux_images, without_flux_labels = load_dataset(without_flux_folder, 0)
-    
-    x_data = np.vstack((with_flux_images, without_flux_images))
-    y_data = np.hstack((with_flux_labels, without_flux_labels))
-    
-    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
-    
-    base_model = ResNet50(weights='imagenet', include_top=False)
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    x = Dropout(0.5)(x)
-    predictions = Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))(x)
-    model = Model(inputs=base_model.input, outputs=predictions)
-    
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    
-    callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0, patience=3, verbose=0, mode='auto',
-                                         baseline=None, restore_best_weights=True)
-    ]
-    
-    logging.info(f"Training model and saving to {output_folder}")
-    history = model.fit(x_train, y_train, epochs=10, batch_size=32, callbacks=callbacks, validation_split=0.2)
-    
-    model.save(f"{output_folder}/my_model.h5")
-    
-    plot_data([round(acc * 100, 2) for acc in history.history['accuracy']], history.history['loss'])
+    # Train in batches
+    if len(collected_images) >= 32:
+        train_on_batch(np.array(collected_images), np.array(collected_labels))
+        collected_images, collected_labels = [], []
 
-# GUI Components
-frame = tk.Frame(root)
-frame.pack(pady=20)
+    return 'Processed'
 
-# Folder selection buttons and status labels
-for folder_type in ['With Flux', 'Without Flux', 'Model Output']:
-    folder_frame = tk.Frame(frame)
-    folder_frame.pack(side="left", padx=10)
-    
-    status_label = tk.Label(folder_frame, text="Not Selected", fg="red")
-    status_label.pack(side="bottom")
-    
-    button = tk.Button(folder_frame, text=f"Select {folder_type} Folder",
-                       command=lambda f=folder_type, s=status_label: select_folder(f, s))
-    button.pack()
+# Gradio Interface
+iface = gr.Interface(
+    fn=classify_image, 
+    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])], 
+    outputs="text"
+)
 
-start_button = tk.Button(root, text="Start Training", command=lambda: threading.Thread(target=train_model).start())
-start_button.pack()
-
-stop_button = tk.Button(root, text="Stop Training", command=stop_training_func)
-stop_button.pack()
-
-root.mainloop()
+iface.launch()
