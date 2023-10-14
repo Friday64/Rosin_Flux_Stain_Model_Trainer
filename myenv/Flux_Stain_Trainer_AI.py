@@ -7,7 +7,7 @@ import numpy as np
 import os
 
 # Define your data directory
-Flux_Pics = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"
+data_dir = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"
 
 # Initialize ImageDataGenerator
 datagen = ImageDataGenerator(
