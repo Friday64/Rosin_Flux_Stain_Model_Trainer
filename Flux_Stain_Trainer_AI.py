@@ -2,12 +2,24 @@
 from PIL import Image
 import gradio as gr
 import numpy as np
+import os
+import matplotlib.pyplot as plt
+import shutil
+import logging
+import time
 from keras.preprocessing.image import ImageDataGenerator
 from keras import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from keras.callbacks import TensorBoard
 
-# Define the data directory path (you can modify this)
-data_dir = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics/Flux_Pics"
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize TensorBoard
+tensorboard = TensorBoard(log_dir=f"./logs/{time.time()}")
+
+# Define the data directory path (modify this)
+data_dir = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"
 
 # Define ImageDataGenerator
 datagen = ImageDataGenerator(
@@ -37,56 +49,52 @@ model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accurac
 collected_images = []
 collected_labels = []
 
+# Additional function to preprocess image
 def preprocess_image(image):
-    # Resize the image to (150, 150)
     image = Image.fromarray(image.astype('uint8'), 'RGB')
     image = image.resize((150, 150))
-    image_array = np.array(image)
-    
-    # Normalize to [0,1]
-    image_array = image_array / 255.0
-    
-    # Expand dimensions for batch size
-    image_array = np.expand_dims(image_array, axis=0)
-    
-    return image_array
+    image_array = np.array(image) / 255.0
+    return np.expand_dims(image_array, axis=0)
+
+# Additional function to train model on batch
 def train_on_batch(images, labels):
-    # Reshape the data if necessary
-    images = np.vstack(images)  # Stack arrays vertically
-    labels = np.array(labels)   # Convert labels list to array
-    
-    # Train the model on this batch
-    history = model.train_on_batch(images, labels)
-    
-    # Print or update metrics (you can expand this)
-    print(f"Training metrics: {history}")
+    images = np.vstack(images)
+    labels = np.array(labels)
+    start_time = time.time()
+    history = model.train_on_batch(images, labels, callbacks=[tensorboard])
+    elapsed_time = time.time() - start_time
+    logging.info(f"Training took {elapsed_time:.2f} seconds")
+    logging.info(f"Training metrics: {history}")
 
 # Gradio UI function
 def classify_image(image, choice):
     global collected_images, collected_labels
+    try:
+        preprocessed_image = preprocess_image(image)
+        label = 1 if choice == 'With Flux' else 0
+        collected_images.append(preprocessed_image)
+        collected_labels.append(label)
+        if len(collected_images) >= 32:
+            train_on_batch(np.array(collected_images), np.array(collected_labels))
+            collected_images, collected_labels = [], []
+        return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return f"An error occurred: {e}"
+# Function to save the model
+def save_model(model, model_name="my_model.h5"):
+    folder_path = os.path.join(os.path.expanduser("~"), 'Desktop', 'Flux_Models')
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    model_path = os.path.join(folder_path, model_name)
+    model.save(model_path)
+    logging.info(f"Model saved to {model_path}")
 
-    # Preprocess image and label
-    preprocessed_image = preprocess_image(image)
-    label = 1 if choice == 'With Flux' else 0
-    
-    # Collect for batch
-    collected_images.append(preprocessed_image)
-    collected_labels.append(label)
-
-    # Train in batches
-    if len(collected_images) >= 32:
-        train_on_batch(np.array(collected_images), np.array(collected_labels))
-        collected_images, collected_labels = [], []
-
-    return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
-
-
-# Define the Gradio interface
+# Gradio Interface
 iface = gr.Interface(
-    fn=classify_image, 
-    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])], 
+    fn=classify_image,
+    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])],
     outputs="text"
 )
 
-# Launch the Gradio interface
 iface.launch()
