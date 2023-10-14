@@ -1,10 +1,9 @@
 # Import required libraries
+import shutil
 from PIL import Image
 import gradio as gr
 import numpy as np
 import os
-import matplotlib.pyplot as plt
-import shutil
 import logging
 import time
 from keras.preprocessing.image import ImageDataGenerator
@@ -69,32 +68,49 @@ def train_on_batch(images, labels):
 # Gradio UI function
 def classify_image(image, choice):
     global collected_images, collected_labels
-    try:
-        preprocessed_image = preprocess_image(image)
-        label = 1 if choice == 'With Flux' else 0
-        collected_images.append(preprocessed_image)
-        collected_labels.append(label)
-        if len(collected_images) >= 32:
-            train_on_batch(np.array(collected_images), np.array(collected_labels))
-            collected_images, collected_labels = [], []
-        return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        return f"An error occurred: {e}"
+
+    # Preprocess image and label
+    preprocessed_image = preprocess_image(image)
+    label = 1 if choice == 'With Flux' else 0
+    
+    # Collect for batch
+    collected_images.append(preprocessed_image)
+    collected_labels.append(label)
+
+    # Move the processed image to a different folder (Add this part)
+    src_path = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"  # Replace with actual path and name
+    dest_path = "C:\Users/Matthew/Desktop/Flux_Stain_Project_Pics/Done"  # Replace with actual path and name
+    shutil.move(src_path, dest_path)
+
+    # Train in batches
+    if len(collected_images) >= 32:
+        train_on_batch(np.array(collected_images), np.array(collected_labels))
+        collected_images, collected_labels = [], []
+
+    return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
+
 # Function to save the model
 def save_model(model, model_name="my_model.h5"):
     folder_path = os.path.join(os.path.expanduser("~"), 'Desktop', 'Flux_Models')
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     model_path = os.path.join(folder_path, model_name)
-    model.save(model_path)
-    logging.info(f"Model saved to {model_path}")
+    if not os.path.exists(model_path):
+        model.save(model_path)
+        logging.info(f"Model saved to {model_path}")
+    else:
+        logging.info(f"Model already exists at {model_path}")
 
 # Gradio Interface
+def close_interface():
+    print("Interface closed. Exiting program.")
+    os._exit(0)
+
 iface = gr.Interface(
-    fn=classify_image,
-    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])],
-    outputs="text"
+    fn=classify_image, 
+    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])], 
+    outputs=["Model Metrics"]
 )
 
-iface.launch()
+
+iface.launch(on_close=close_interface)
