@@ -1,15 +1,15 @@
-from PIL import Image  # Changed from tkinter Image
-from keras.preprocessing.image import ImageDataGenerator
-from keras import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+# Import required libraries
+from PIL import Image
 import gradio as gr
 import numpy as np
-import os
+from keras.preprocessing.image import ImageDataGenerator
+from keras import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 
-# Define your data directory
-Flux_Pics = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"
+# Define the data directory path (you can modify this)
+data_dir = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics/Flux_Pics"
 
-# Initialize ImageDataGenerator
+# Define ImageDataGenerator
 datagen = ImageDataGenerator(
     rescale=1./255,
     shear_range=0.2,
@@ -17,15 +17,7 @@ datagen = ImageDataGenerator(
     horizontal_flip=True
 )
 
-# Create a training image generator
-train_generator = datagen.flow_from_directory(
-    data_dir,
-    target_size=(150, 150),
-    batch_size=32,
-    class_mode='binary'
-)
-
-# Model definition
+# Define model architecture
 model = Sequential([
     Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
     MaxPooling2D((2, 2)),
@@ -38,26 +30,36 @@ model = Sequential([
     Dense(1, activation='sigmoid')
 ])
 
-# Model compilation
+# Compile the model
 model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-
-# Function to preprocess image
-def preprocess_image(image):
-    image = Image.fromarray(image.astype('uint8'), 'RGB')
-    image = image.resize((150, 150))
-    image_array = np.array(image)
-    image_array = image_array / 255.0
-    image_array = np.expand_dims(image_array, axis=0)
-    return image_array
 
 # Initialize empty lists to hold images and labels
 collected_images = []
 collected_labels = []
 
-# Function to train on batch
+def preprocess_image(image):
+    # Resize the image to (150, 150)
+    image = Image.fromarray(image.astype('uint8'), 'RGB')
+    image = image.resize((150, 150))
+    image_array = np.array(image)
+    
+    # Normalize to [0,1]
+    image_array = image_array / 255.0
+    
+    # Expand dimensions for batch size
+    image_array = np.expand_dims(image_array, axis=0)
+    
+    return image_array
 def train_on_batch(images, labels):
-    history = model.fit(np.vstack(images), labels, epochs=10)
-    print(history.history)  # Just printing metrics for now
+    # Reshape the data if necessary
+    images = np.vstack(images)  # Stack arrays vertically
+    labels = np.array(labels)   # Convert labels list to array
+    
+    # Train the model on this batch
+    history = model.train_on_batch(images, labels)
+    
+    # Print or update metrics (you can expand this)
+    print(f"Training metrics: {history}")
 
 # Gradio UI function
 def classify_image(image, choice):
@@ -76,13 +78,15 @@ def classify_image(image, choice):
         train_on_batch(np.array(collected_images), np.array(collected_labels))
         collected_images, collected_labels = [], []
 
-    return 'Processed'
+    return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
 
-# Gradio Interface
+
+# Define the Gradio interface
 iface = gr.Interface(
     fn=classify_image, 
     inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])], 
     outputs="text"
 )
 
+# Launch the Gradio interface
 iface.launch()
