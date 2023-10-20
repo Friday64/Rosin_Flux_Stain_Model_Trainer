@@ -1,4 +1,5 @@
 import tkinter as tk
+import matplotlib.pyplot as plt
 from tkinter import filedialog
 from tqdm import tqdm
 import os
@@ -157,5 +158,54 @@ progress_bar.update(10)  # Update the progress by 10 units
 progress_bar.close()
 train_button = tk.Button(window, text="Train Model", command=train_model)
 train_button.pack()
+#plot model metrics and display them on gui window
+import matplotlib.pyplot as plt
+import tkinter as tk
+
+# Function to plot model metrics
+def plot_metrics(metrics):
+    # Extract the metrics data
+    epochs = metrics['epochs']
+    loss = metrics['loss']
+    accuracy = metrics['accuracy']
+    
+    # Create a figure and axes
+    fig, ax = plt.subplots()
+    
+    # Plot the loss
+    ax.plot(epochs, loss, label='Loss')
+    
+    # Plot the accuracy
+    ax.plot(epochs, accuracy, label='Accuracy')
+    
+    # Set the x-axis label
+    ax.set_xlabel('Epochs')
+    
+    # Set the y-axis label
+    ax.set_ylabel('Metrics')
+    
+    # Set the title
+    ax.set_title('Model Metrics')
+    
+    # Add a legend
+    ax.legend()
+    
+    # Display the plot on the GUI window
+    plt.show()
+
+# Create the GUI window
+window = tk.Tk()
+
+# Call the plot_metrics function with sample metrics data
+sample_metrics = {
+    'epochs': [1, 2, 3, 4, 5],
+    'loss': [0.5, 0.4, 0.3, 0.2, 0.1],
+    'accuracy': [0.8, 0.85, 0.9, 0.95, 1.0]
+}
+plot_metrics(sample_metrics)
+
+# Run the GUI event loop
+
+
 
 window.mainloop()
