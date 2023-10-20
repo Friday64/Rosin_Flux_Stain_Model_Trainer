@@ -194,17 +194,4 @@ def plot_metrics(metrics):
     # Display the plot on the GUI window
     plt.show()
 
-
-# Call the plot_metrics function with the metrics data
-plot_metrics(metrics)
-
-
-
-
-
-
-# Run the GUI event loop
-
-
-
 window.mainloop()
