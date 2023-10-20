@@ -87,7 +87,7 @@ def create_and_compile_model():
     return model
 
 # Create a function to train the model
-def train_model():
+def train_model(epochs):
     global with_flux_folder, without_flux_folder, output_folder
 
     # Load and preprocess images from the input folders
@@ -103,7 +103,7 @@ def train_model():
     model = create_and_compile_model()
 
     # Train the model
-    model.fit(np.array(X_train), np.array(y_train), epochs=10, batch_size=32, validation_data=(np.array(X_test), np.array(y_test)))
+    model.fit(np.array(X_train), np.array(y_train), epochs=int(epochs_entry.get()), batch_size=32, validation_data=(np.array(X_test), np.array(y_test)))
 
     # Save the model to the output folder
     model.save(os.path.join(output_folder, model_file))
