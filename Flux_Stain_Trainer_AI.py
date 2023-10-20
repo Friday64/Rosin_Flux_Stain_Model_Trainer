@@ -79,7 +79,7 @@ def classify_image(image, choice):
 
     # Move the processed image to a different folder (Add this part)
     src_path = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"  # Replace with actual path and name
-    dest_path = "C:\Users/Matthew/Desktop/Flux_Stain_Project_Pics/Done"  # Replace with actual path and name
+    dest_path = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics/Done"  # Replace with actual path and name
     shutil.move(src_path, dest_path)
 
     # Train in batches
