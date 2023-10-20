@@ -1,6 +1,7 @@
 import tkinter as tk
 import matplotlib.pyplot as plt
 from tkinter import filedialog
+from sklearn import metrics
 from tqdm import tqdm
 import os
 import cv2
@@ -193,16 +194,14 @@ def plot_metrics(metrics):
     # Display the plot on the GUI window
     plt.show()
 
-# Create the GUI window
-window = tk.Tk()
 
-# Call the plot_metrics function with sample metrics data
-sample_metrics = {
-    'epochs': [1, 2, 3, 4, 5],
-    'loss': [0.5, 0.4, 0.3, 0.2, 0.1],
-    'accuracy': [0.8, 0.85, 0.9, 0.95, 1.0]
-}
-plot_metrics(sample_metrics)
+# Call the plot_metrics function with the metrics data
+plot_metrics(metrics)
+
+
+
+
+
 
 # Run the GUI event loop
 
