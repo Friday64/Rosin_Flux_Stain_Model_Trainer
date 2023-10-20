@@ -1,116 +1,200 @@
-# Import required libraries
-import shutil
-from PIL import Image
-import gradio as gr
+#Create a TensorFlow model that detects flux stains on a PCB
+#use threads for all the image processing and training
+#using two diffrent folders of images on the desktop
+#use image processing for the semi-parent nature of flux, it has a yellow hue with a slite brown tint
+#use Tkinter for the GUI
+#use root.mainloop() to run the GUI
+#ask the user for the 2 input folders "With_flux" and "Without_flux"
+#have a button to train the model
+#train the model when the button is pressed
+#ask user for the output folder to save the model before training the model
+#check to see if the model has already exists and reuse it if it does
+#create a new model if it does not exist called "Flux_stain_Model.h5"
+#save the model to the output folder
+
+#import the necessary libraries first
+from tkinter import filedialog
+from altair import LabelOverlap
+from pydantic import create_model
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
 import numpy as np
+import cv2
+import tkinter as tk
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import Conv2D, MaxPooling2D, BatchNormalization
+from keras.losses import categorical_crossentropy
+from keras.optimizers import Adam
+from keras.regularizers import l2
+from keras.utils import to_categorical
+import matplotlib.pyplot as plt
 import os
-import logging
+import shutil
+import random
+import glob
 import time
-from keras.preprocessing.image import ImageDataGenerator
-from keras import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from keras.callbacks import TensorBoard
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
+#define the path of the 2 folders that contain the images "With_flux" and "Without_flux"
+# Define the path of the 2 folders that contain the images
+with_flux_folder = "path/to/With_flux"
+without_flux_folder = "path/to/Without_flux"
 
-# Initialize TensorBoard
-tensorboard = TensorBoard(log_dir=f"./logs/{time.time()}")
-
-# Define the data directory path (modify this)
-data_dir = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"
-
-# Define ImageDataGenerator
-datagen = ImageDataGenerator(
-    rescale=1./255,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True
-)
-
-# Define model architecture
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
-    MaxPooling2D((2, 2)),
-    Conv2D(64, (3, 3), activation='relu'),
-    MaxPooling2D((2, 2)),
-    Conv2D(128, (3, 3), activation='relu'),
-    MaxPooling2D((2, 2)),
-    Flatten(),
-    Dense(512, activation='relu'),
-    Dense(1, activation='sigmoid')
-])
-
-# Compile the model
-model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-
-# Initialize empty lists to hold images and labels
-collected_images = []
-collected_labels = []
-
-# Additional function to preprocess image
 def preprocess_image(image):
-    image = Image.fromarray(image.astype('uint8'), 'RGB')
-    image = image.resize((150, 150))
-    image_array = np.array(image) / 255.0
-    return np.expand_dims(image_array, axis=0)
+    # Perform preprocessing steps on the image
+    # e.g. resize, normalize, etc.
+    resized_image = cv2.resize(image, (100, 100))
+    normalized_image = resized_image / 255.0
+    return normalized_image
+    return preprocessed_image
 
-# Additional function to train model on batch
-def train_on_batch(images, labels):
-    images = np.vstack(images)
-    labels = np.array(labels)
-    start_time = time.time()
-    history = model.train_on_batch(images, labels, callbacks=[tensorboard])
-    elapsed_time = time.time() - start_time
-    logging.info(f"Training took {elapsed_time:.2f} seconds")
-    logging.info(f"Training metrics: {history}")
-
-# Gradio UI function
-def classify_image(image, choice):
-    global collected_images, collected_labels
-
-    # Preprocess image and label
-    preprocessed_image = preprocess_image(image)
-    label = 1 if choice == 'With Flux' else 0
-    
-    # Collect for batch
-    collected_images.append(preprocessed_image)
-    collected_labels.append(label)
-
-    # Move the processed image to a different folder (Add this part)
-    src_path = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics"  # Replace with actual path and name
-    dest_path = "C:/Users/Matthew/Desktop/Flux_Stain_Project_Pics/Done"  # Replace with actual path and name
-    shutil.move(src_path, dest_path)
-
-    # Train in batches
-    if len(collected_images) >= 32:
-        train_on_batch(np.array(collected_images), np.array(collected_labels))
-        collected_images, collected_labels = [], []
-
-    return f"Image processed and labeled as {'With Flux' if label == 1 else 'Without Flux'}"
-
-# Function to save the model
-def save_model(model, model_name="my_model.h5"):
-    folder_path = os.path.join(os.path.expanduser("~"), 'Desktop', 'Flux_Models')
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-    model_path = os.path.join(folder_path, model_name)
-    if not os.path.exists(model_path):
-        model.save(model_path)
-        logging.info(f"Model saved to {model_path}")
+def apply_filter(image, filter_type):
+    # Apply a specific filter to the image
+    # e.g. blur, sharpen, edge detection, etc.
+    if filter_type == 'blur':
+        filtered_image = cv2.blur(image, (5, 5))
+    elif filter_type == 'sharpen':
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+        filtered_image = cv2.filter2D(image, -1, kernel)
+    elif filter_type == 'edge_detection':
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray_image, 100, 200)
+        filtered_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
     else:
-        logging.info(f"Model already exists at {model_path}")
+        raise ValueError("Invalid filter type")
+    
+    return filtered_image
 
-# Gradio Interface
-def close_interface():
-    print("Interface closed. Exiting program.")
-    os._exit(0)
+def enhance_contrast(image):
+    # Enhance the contrast of the image
+    # e.g. histogram equalization, adaptive histogram equalization, etc.
+    contrast_enhanced_image = cv2.equalizeHist(image)
 
-iface = gr.Interface(
-    fn=classify_image, 
-    inputs=["image", gr.inputs.Radio(["With Flux", "Without Flux"])], 
-    outputs=["Model Metrics"]
-)
+    return contrast_enhanced_image
+
+# Example usage:
+image = cv2.imread('path/to/image.jpg')
+preprocessed_image = preprocess_image(image)
+filtered_image = apply_filter(preprocessed_image, 'blur')
+enhanced_image = enhance_contrast(filtered_image)
 
 
-iface.launch(on_close=close_interface)
+
+#create a list called preprocessed_images for the preprocessed images and a list called labels for the labels
+preprocessed_images = []
+labels = []
+
+
+
+
+
+
+
+
+
+def train_model():
+    # Ask user for the output folder to save the model
+    output_folder = filedialog.askdirectory()
+
+    # Train your model here
+    model = create_model()
+    
+
+    # Assuming you have preprocessed images stored in a list called preprocessed_images
+    # Assuming you have corresponding labels stored in a list called labels
+
+    # Convert the preprocessed_images list to a numpy array
+    X = np.array(preprocessed_images)
+    Y=np.array(labels)
+    # Split the data into training and testing sets
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+    # Convert the labels list to a numpy array and encode them as one-hot vectors
+    num_classes = len(set(labels))
+    y = np.zeros((len(LabelOverlap), num_classes))
+    for i, label in enumerate(labels):
+        y[i, label] = 1
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit(x_train, y_train, epochs=10, batch_size=32, validation_data=(x_test, y_test))
+    
+#create main window and widgets
+window = tk.Tk()
+window.title("Flux Stain Classifier")
+window.geometry("500x500")
+#ask the user for the 2 input folders "With_flux" and "Without_flux" in the gui
+import tkinter as tk
+from tkinter import filedialog
+
+
+#create main window and widgets
+window = tk.Tk()
+window.title("Flux Stain Classifier")
+window.geometry("500x500")
+
+# Create entry fields for the input folders
+with_flux_entry = tk.Entry(window)
+with_flux_entry.pack()
+
+without_flux_entry = tk.Entry(window)
+without_flux_entry.pack()
+
+# Create a button to train the model
+train_button = tk.Button(window, text="Train Model", command=train_model)
+train_button.pack()
+
+window.mainloop()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
