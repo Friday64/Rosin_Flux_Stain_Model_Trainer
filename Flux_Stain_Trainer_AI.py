@@ -72,12 +72,6 @@ def enhance_contrast(image):
 
     return contrast_enhanced_image
 
-# Example usage:
-image = cv2.imread('path/to/image.jpg')
-preprocessed_image = preprocess_image(image)
-filtered_image = apply_filter(preprocessed_image, 'blur')
-enhanced_image = enhance_contrast(filtered_image)
-
 
 
 #create a list called preprocessed_images for the preprocessed images and a list called labels for the labels
