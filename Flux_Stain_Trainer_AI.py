@@ -89,6 +89,37 @@ def create_and_compile_model():
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.001), metrics=['accuracy'])
     return model
 
+# Function to plot model metrics
+def plot_metrics(metrics):
+    # Extract the metrics data
+    epochs = metrics['epochs']
+    loss = metrics['loss']
+    accuracy = metrics['accuracy']
+    
+    # Create a figure and axes
+    fig, ax = plt.subplots()
+    
+    # Plot the loss
+    ax.plot(epochs, loss, label='Loss')
+    
+    # Plot the accuracy
+    ax.plot(epochs, accuracy, label='Accuracy')
+    
+    # Set the x-axis label
+    ax.set_xlabel('Epochs')
+    
+    # Set the y-axis label
+    ax.set_ylabel('Metrics')
+    
+    # Set the title
+    ax.set_title('Model Metrics')
+    
+    # Add a legend
+    ax.legend()
+    
+    # Display the plot on the GUI window
+    plt.show()
+
 # Create a function to train the model
 def train_model(epochs):
     global with_flux_folder, without_flux_folder, output_folder
@@ -169,35 +200,6 @@ submit_button.pack()
 train_button = tk.Button(window, text="Train Model", command=lambda: train_model(int(epochs_entry.get())))
 train_button.pack()
 
-# Function to plot model metrics
-def plot_metrics(metrics):
-    # Extract the metrics data
-    epochs = metrics['epochs']
-    loss = metrics['loss']
-    accuracy = metrics['accuracy']
-    
-    # Create a figure and axes
-    fig, ax = plt.subplots()
-    
-    # Plot the loss
-    ax.plot(epochs, loss, label='Loss')
-    
-    # Plot the accuracy
-    ax.plot(epochs, accuracy, label='Accuracy')
-    
-    # Set the x-axis label
-    ax.set_xlabel('Epochs')
-    
-    # Set the y-axis label
-    ax.set_ylabel('Metrics')
-    
-    # Set the title
-    ax.set_title('Model Metrics')
-    
-    # Add a legend
-    ax.legend()
-    
-    # Display the plot on the GUI window
-    plt.show()
+
 
 window.mainloop()
