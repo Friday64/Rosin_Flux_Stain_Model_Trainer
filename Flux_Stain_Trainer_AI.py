@@ -41,6 +41,14 @@ def preprocess_image(image):
 
 # Create a function to apply a specific filter to the image
 def apply_filter(image, filter_type):
+
+        # Check image dtype and convert if necessary
+    if image.dtype == 'float64':  # or np.float64
+        image = (image * 255).astype('uint8')
+
+    # Convert to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
     if filter_type == 'blur':
         filtered_image = cv2.blur(image, (5, 5))
     elif filter_type == 'sharpen':
@@ -57,6 +65,16 @@ def apply_filter(image, filter_type):
 
 # Create a function to enhance the contrast of the image
 def enhance_contrast(image):
+     # Check if the image is single-channel (grayscale)
+    if len(image.shape) == 3:
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray_image = image
+
+    # Ensure the image is of type uint8
+    if gray_image.dtype != 'uint8':
+        gray_image = gray_image.astype('uint8')
+
     contrast_enhanced_image = cv2.equalizeHist(image)
     return contrast_enhanced_image
 
@@ -96,28 +114,27 @@ def start_training():
 # Create a function to train the model
 def train_model(epochs):
     global with_flux_folder, without_flux_folder, output_folder
-
-    #filter the images, apply the filter, enhance the contrast, and preprocess the images
-    #define the filter types
-    #define with_flux_images, without_flux_images
     filter_types = ['blur', 'sharpen', 'edge_detection']
 
-    # Define with_flux_images and without_flux_images
+    # Load and preprocess the original images
     with_flux_images, with_flux_labels = load_and_preprocess_images(with_flux_folder, 1)
     without_flux_images, without_flux_labels = load_and_preprocess_images(without_flux_folder, 0)
 
-    # Filter the images
-    filtered_with_flux_images = [apply_filter(image, filter_types) for image in with_flux_images]
-    filtered_without_flux_images = [apply_filter(image, filter_types) for image in without_flux_images]
+    # Apply each filter type to the images
+    filtered_with_flux_images = []
+    filtered_without_flux_images = []
+    for filter_type in filter_types:
+        filtered_with_flux_images += [apply_filter(image, filter_type) for image in with_flux_images]
+        filtered_without_flux_images += [apply_filter(image, filter_type) for image in without_flux_images]
 
     # Enhance the contrast
     enhanced_with_flux_images = [enhance_contrast(image) for image in filtered_with_flux_images]
     enhanced_without_flux_images = [enhance_contrast(image) for image in filtered_without_flux_images]
 
-    # Preprocess the images
-    preprocessed_with_flux_images, with_flux_labels = load_and_preprocess_images(enhanced_with_flux_images, with_flux_labels)
-    preprocessed_without_flux_images, without_flux_labels = load_and_preprocess_images(enhanced_without_flux_images, without_flux_labels)
+    
 
+
+   
     # Combine and shuffle the data
     all_images = with_flux_images + without_flux_images
     all_labels = with_flux_labels + without_flux_labels
@@ -163,11 +180,6 @@ epochs_label = tk.Label(window, text="Number of Epochs:")
 epochs_label.pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
-
-# Create a button to capture the user's input
-capture_button = tk.Button(window, text="Capture", command=capture_user_input)
-capture_button.pack()
-
 
 start_button = tk.Button(window, text="Start Training", command=start_training)
 start_button.pack()
