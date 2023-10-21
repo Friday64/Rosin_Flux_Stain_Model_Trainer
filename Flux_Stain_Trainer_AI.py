@@ -1,23 +1,24 @@
-import tkinter as tk
-import matplotlib.pyplot as plt
-from tkinter import filedialog
-from sklearn import metrics
-from tqdm import tqdm
-import os
-import cv2
-import numpy as np
-import tensorflow as tf
-from sklearn.model_selection import train_test_split
+from logging import _FilterType  # Import logging module for _FilterType
+import tkinter as tk  # Import tkinter module for tk
+import matplotlib.pyplot as plt  # Import matplotlib module for plt
+from tkinter import filedialog  # Import filedialog module from tkinter for filedialog
+from sklearn import metrics  # Import metrics module from sklearn for metrics
+from tqdm import tqdm  # Import tqdm module for tqdm
+import os  # Import os module for os
+import cv2  # Import cv2 module for cv2
+import numpy as np  # Import numpy module for np
+import tensorflow as tf  # Import tensorflow module for tf
+from sklearn.model_selection import train_test_split  # Import train_test_split module from sklearn for train_test_split
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.optimizers import Adam
-import threading
-
+import matplotlib.pyplot as plt
+import tkinter as tk
 # Define global variables for input and output folders
 with_flux_folder = ""
 without_flux_folder = ""
 output_folder = "output"
-model_file = "Flux_stain_Model.h5"
+model_file = "Flux_Stain_Model.h5"
 
 # Create a function to browse for input folders
 def browse_input_folders(folder_type):
@@ -92,9 +93,26 @@ def create_and_compile_model():
 def train_model(epochs):
     global with_flux_folder, without_flux_folder, output_folder
 
-    # Load and preprocess images from the input folders
-    with_flux_images, with_flux_labels = load_and_preprocess_images(with_flux_folder, [1, 0])
-    without_flux_images, without_flux_labels = load_and_preprocess_images(without_flux_folder, [0, 1])
+    #filter the images, apply the filter, enhance the contrast, and preprocess the images
+    #define the filter types
+    #define with_flux_images, without_flux_images
+    filter_types = ['blur', 'sharpen', 'edge_detection']
+
+    # Define with_flux_images and without_flux_images
+    with_flux_images, with_flux_labels = load_and_preprocess_images(with_flux_folder, 1)
+    without_flux_images, without_flux_labels = load_and_preprocess_images(without_flux_folder, 0)
+
+    # Filter the images
+    filtered_with_flux_images = [apply_filter(image, filter_types) for image in with_flux_images]
+    filtered_without_flux_images = [apply_filter(image, filter_types) for image in without_flux_images]
+
+    # Enhance the contrast
+    enhanced_with_flux_images = [enhance_contrast(image) for image in filtered_with_flux_images]
+    enhanced_without_flux_images = [enhance_contrast(image) for image in filtered_without_flux_images]
+
+    # Preprocess the images
+    preprocessed_with_flux_images, with_flux_labels = load_and_preprocess_images(enhanced_with_flux_images, with_flux_labels)
+    preprocessed_without_flux_images, without_flux_labels = load_and_preprocess_images(enhanced_without_flux_images, without_flux_labels)
 
     # Combine and shuffle the data
     all_images = with_flux_images + without_flux_images
@@ -147,21 +165,9 @@ submit_button = tk.Button(window, text="Submit", command=lambda: train_model(int
 submit_button.pack()
 
 
-# Create a progress bar for the training process
-
-# Create a progress bar 
-progress_bar = tqdm(total=100)
-
-# Update the progress bar as needed
-progress_bar.update(10)  # Update the progress by 10 units
-
-# Close the progress bar
-progress_bar.close()
-train_button = tk.Button(window, text="Train Model", command=train_model)
+# Create a button to train the model
+train_button = tk.Button(window, text="Train Model", command=lambda: train_model(int(epochs_entry.get())))
 train_button.pack()
-#plot model metrics and display them on gui window
-import matplotlib.pyplot as plt
-import tkinter as tk
 
 # Function to plot model metrics
 def plot_metrics(metrics):
