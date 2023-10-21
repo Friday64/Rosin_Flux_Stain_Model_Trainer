@@ -9,11 +9,11 @@ import cv2  # Import cv2 module for cv2
 import numpy as np  # Import numpy module for np
 import tensorflow as tf  # Import tensorflow module for tf
 from sklearn.model_selection import train_test_split  # Import train_test_split module from sklearn for train_test_split
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
-from keras.optimizers import Adam
-import matplotlib.pyplot as plt
-import tkinter as tk
+from keras.models import Sequential  # Import Sequential module from keras for Sequential
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D  # Import Dense, Dropout, Flatten, Conv2D, MaxPooling2D modules from keras for Sequential
+from keras.optimizers import Adam  # Import Adam module from keras for Adam
+import matplotlib.pyplot as plt # Import matplotlib module for plt
+import tkinter as tk  # Import tkinter module for tk
 # Define global variables for input and output folders
 with_flux_folder = ""
 without_flux_folder = ""
@@ -199,6 +199,10 @@ submit_button.pack()
 # Create a button to train the model
 train_button = tk.Button(window, text="Train Model", command=lambda: train_model(int(epochs_entry.get())))
 train_button.pack()
+
+#use metrics function to plot metrics in the GUI
+plot_metrics(metrics)  # Assuming metrics is already defined
+
 
 
 
