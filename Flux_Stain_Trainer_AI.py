@@ -12,6 +12,7 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D  # Import
 from keras.optimizers import Adam  # Import Adam module from keras for Adam
 import matplotlib.pyplot as plt # Import matplotlib module for plt
 import tkinter as tk  # Import tkinter module for tk
+
 # Define global variables for input and output folders
 with_flux_folder = ""
 without_flux_folder = ""
@@ -87,6 +88,11 @@ def create_and_compile_model():
     model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.001), metrics=['accuracy'])
     return model
 
+def start_training():
+    num_epochs = int(epochs_entry.get())  # Get the number of epochs from the Tkinter entry field
+    train_model(num_epochs)  # Call the existing train_model function with the number of epochs
+
+
 # Create a function to train the model
 def train_model(epochs):
     global with_flux_folder, without_flux_folder, output_folder
@@ -159,12 +165,11 @@ epochs_entry = tk.Entry(window)
 epochs_entry.pack()
 
 # Create a button to capture the user's input
-submit_button = tk.Button(window, text="Submit", command=lambda: train_model(int(epochs_entry.get())))
-submit_button.pack()
+capture_button = tk.Button(window, text="Capture", command=capture_user_input)
+capture_button.pack()
 
 
-# Create a button to train the model
-train_button = tk.Button(window, text="Train Model", command=lambda: train_model(int(epochs_entry.get())))
-train_button.pack()
+start_button = tk.Button(window, text="Start Training", command=start_training)
+start_button.pack()
 
 window.mainloop()
