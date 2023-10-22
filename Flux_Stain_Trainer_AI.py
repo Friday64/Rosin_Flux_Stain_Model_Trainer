@@ -64,7 +64,7 @@ def train_model(epochs):
     
     datagen = ImageDataGenerator(rotation_range=20, width_shift_range=0.2,
                                  height_shift_range=0.2, horizontal_flip=True)
-    datagen.fit(np.array(X_train))
+    datagen.fit(np.expand_dims(np.array(X_train), axis=-1))  # modified line
     
     early_stopping = EarlyStopping(monitor='val_loss', patience=3)
     
