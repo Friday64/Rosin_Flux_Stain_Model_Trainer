@@ -18,19 +18,23 @@ without_flux_folder = ""
 output_folder = "output"
 model_file = "Flux_Stain_Model.h5"
 
-# Create a function to browse for input folders
-def browse_input_folders(folder_type):
+# Create a function to browse for input folders and update label
+def browse_input_folders(folder_type, label_widget):
     global with_flux_folder, without_flux_folder
     folder = filedialog.askdirectory(title=f"Select {folder_type} Folder")
-    if folder_type == "With Flux":
-        with_flux_folder = folder
-    elif folder_type == "Without Flux":
-        without_flux_folder = folder
+    if folder:
+        label_widget.config(text=folder)
+        if folder_type == "With Flux":
+            with_flux_folder = folder
+        elif folder_type == "Without Flux":
+            without_flux_folder = folder
 
-# Create a function to browse for the output folder
-def browse_output_folder():
+# Create a function to browse for the output folder and update label
+def browse_output_folder(label_widget):
     global output_folder
     output_folder = filedialog.askdirectory(title="Select Output Folder")
+    if output_folder:
+        label_widget.config(text=output_folder)
 
 # Create a function to preprocess images
 def preprocess_image(image):
