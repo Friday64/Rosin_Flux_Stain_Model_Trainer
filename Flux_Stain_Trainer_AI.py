@@ -10,6 +10,10 @@ from sklearn.model_selection import train_test_split  # Import train_test_split 
 from keras.models import Sequential  # Import Sequential module from keras for Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D  # Import Dense, Dropout, Flatten, Conv2D, MaxPooling2D modules from keras for Sequential
 from keras.optimizers import Adam  # Import Adam module from keras for Adam
+from keras.regularizers import l2  # Import l2 for adding regularization
+from keras.callbacks import EarlyStopping  # Import EarlyStopping
+from keras.preprocessing.image import ImageDataGenerator  # Import ImageDataGenerator for data augmentation
+
 import tkinter as tk  # Import tkinter module for tk
 
 # Define global variables for input and output folders
@@ -149,10 +153,24 @@ def train_model(epochs):
 
     # Create and compile the model
     model = create_and_compile_model()
+    
+    # Data Augmentation
+    datagen = ImageDataGenerator(
+        rotation_range=20,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        horizontal_flip=True)
+    datagen.fit(np.array(X_train))
+
+    # Early stopping
+    early_stopping = EarlyStopping(monitor='val_loss', patience=3)
 
     # Train the model
-    model.fit(np.array(X_train), np.array(y_train_onehot), epochs=int(epochs_entry.get()), batch_size=32, validation_data=(np.array(X_test), np.array(y_test_onehot)))
-    
+    model.fit(datagen.flow(np.array(X_train), np.array(y_train), batch_size=32),
+              epochs=int(epochs_entry.get()), 
+              validation_data=(np.array(X_test), np.array(y_test)), 
+              callbacks=[early_stopping])
+
     # Save the model to the output folder
     model.save(os.path.join(output_folder, model_file))
     print("Model Saved")
