@@ -162,24 +162,28 @@ window = tk.Tk()
 window.title("Flux Stain Detector")
 window.geometry("500x200")
 
-# Create labels and buttons for input folders
+# Create labels and buttons for input folders and labels to display folder paths
 with_flux_label = tk.Label(window, text="With Flux Folder:")
 with_flux_label.pack()
-with_flux_button = tk.Button(window, text="Browse", command=lambda: browse_input_folders("With Flux"))
+with_flux_display = tk.Label(window, text="Not Selected")
+with_flux_display.pack()
+with_flux_button = tk.Button(window, text="Browse", command=lambda: browse_input_folders("With Flux", with_flux_display))
 with_flux_button.pack()
-
 
 without_flux_label = tk.Label(window, text="Without Flux Folder:")
 without_flux_label.pack()
-without_flux_button = tk.Button(window, text="Browse", command=lambda: browse_input_folders("Without Flux"))
+without_flux_display = tk.Label(window, text="Not Selected")
+without_flux_display.pack()
+without_flux_button = tk.Button(window, text="Browse", command=lambda: browse_input_folders("Without Flux", without_flux_display))
 without_flux_button.pack()
 
-# Create a label and button for the output folder
+# Create a label and button for the output folder and a label to display folder path
 output_label = tk.Label(window, text="Output Folder:")
 output_label.pack()
-output_button = tk.Button(window, text="Browse", command=browse_output_folder)
+output_display = tk.Label(window, text="Not Selected")
+output_display.pack()
+output_button = tk.Button(window, text="Browse", command=lambda: browse_output_folder(output_display))
 output_button.pack()
-
 
 #have the user enter the amount of epoch in the window
 # Create a label and entry field for the number of epochs
