@@ -10,7 +10,6 @@ from sklearn.model_selection import train_test_split  # Import train_test_split 
 from keras.models import Sequential  # Import Sequential module from keras for Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D  # Import Dense, Dropout, Flatten, Conv2D, MaxPooling2D modules from keras for Sequential
 from keras.optimizers import Adam  # Import Adam module from keras for Adam
-import matplotlib.pyplot as plt # Import matplotlib module for plt
 import tkinter as tk  # Import tkinter module for tk
 
 # Define global variables for input and output folders
@@ -65,7 +64,7 @@ def apply_filter(image, filter_type):
 
 # Create a function to enhance the contrast of the image
 def enhance_contrast(image):
-     # Check if the image is single-channel (grayscale)
+    # Check if the image is single-channel (grayscale)
     if len(image.shape) == 3:
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     else:
@@ -75,7 +74,7 @@ def enhance_contrast(image):
     if gray_image.dtype != 'uint8':
         gray_image = gray_image.astype('uint8')
 
-    contrast_enhanced_image = cv2.equalizeHist(image)
+    contrast_enhanced_image = cv2.equalizeHist(gray_image)  # Equalize on gray image
     return contrast_enhanced_image
 
 # Create a function to load and preprocess images from a folder
@@ -140,12 +139,16 @@ def train_model(epochs):
     all_labels = with_flux_labels + without_flux_labels
     X_train, X_test, y_train, y_test = train_test_split(all_images, all_labels, test_size=0.2, random_state=42)
 
+    # One-hot encode the labels
+    y_train_onehot = np.eye(2)[y_train]
+    y_test_onehot = np.eye(2)[y_test]
+
     # Create and compile the model
     model = create_and_compile_model()
 
     # Train the model
-    model.fit(np.array(X_train), np.array(y_train), epochs=int(epochs_entry.get()), batch_size=32, validation_data=(np.array(X_test), np.array(y_test)))
-
+    model.fit(np.array(X_train), np.array(y_train_onehot), epochs=int(epochs_entry.get()), batch_size=32, validation_data=(np.array(X_test), np.array(y_test_onehot)))
+    
     # Save the model to the output folder
     model.save(os.path.join(output_folder, model_file))
     print("Model Saved")
