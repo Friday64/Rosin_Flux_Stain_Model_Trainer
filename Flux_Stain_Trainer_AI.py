@@ -111,7 +111,7 @@ def create_and_compile_model():
     model.add(Dropout(0.5))
     model.add(Dense(2, activation='softmax'))
 
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.001), metrics=['accuracy'])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 def start_training():
