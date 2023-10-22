@@ -160,7 +160,7 @@ def train_model(epochs):
 # Create the main window
 window = tk.Tk()
 window.title("Flux Stain Detector")
-window.geometry("500x200")
+window.geometry("500x400")
 
 # Create labels and buttons for input folders and labels to display folder paths
 with_flux_label = tk.Label(window, text="With Flux Folder:")
