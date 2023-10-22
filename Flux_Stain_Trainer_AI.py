@@ -13,6 +13,7 @@ from keras.optimizers import Adam  # Import Adam module from keras for Adam
 from keras.regularizers import l2  # Import l2 for adding regularization
 from keras.callbacks import EarlyStopping  # Import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator  # Import ImageDataGenerator for data augmentation
+from keras.utils import to_categorical  # Import to_categorical for one-hot encoding
 
 import tkinter as tk  # Import tkinter module for tk
 
@@ -148,8 +149,8 @@ def train_model(epochs):
     X_train, X_test, y_train, y_test = train_test_split(all_images, all_labels, test_size=0.2, random_state=42)
 
     # One-hot encode the labels
-    y_train_onehot = np.eye(2)[y_train]
-    y_test_onehot = np.eye(2)[y_test]
+    y_train_onehot = to_categorical(y_train, num_classes=2)
+    y_test_onehot = to_categorical(y_test, num_classes=2)
 
     # Create and compile the model
     model = create_and_compile_model()
