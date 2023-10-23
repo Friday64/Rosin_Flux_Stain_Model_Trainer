@@ -50,30 +50,55 @@ def create_model():
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
+from tensorflow.keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.models import load_model
+import numpy as np
+import os
+
 def train_model(epochs):
+    # Load or create the model
     model_path = 'Flux_Stain_Model.h5'
     model = load_model(model_path) if os.path.exists(model_path) else create_model()
     
+    # Load and preprocess images
     with_flux_data = preprocess_and_load_images(with_flux_folder, 1)
     without_flux_data = preprocess_and_load_images(without_flux_folder, 0)
     
+    # Combine and split the dataset
     all_images, all_labels = zip(*(with_flux_data + without_flux_data))
+    
+    # Always good to check shapes for debugging
+    print(f"Shape of all_images: {np.array(all_images).shape}")
+    print(f"Shape of all_labels: {np.array(all_labels).shape}")
+    
     X_train, X_test, y_train, y_test = train_test_split(all_images, all_labels, test_size=0.2)
     
+    # Convert labels to categorical
     y_train, y_test = to_categorical(y_train, 2), to_categorical(y_test, 2)
     
+    # Data augmentation
     datagen = ImageDataGenerator(rotation_range=20, width_shift_range=0.2,
                                  height_shift_range=0.2, horizontal_flip=True)
-    datagen.fit(np.expand_dims(np.array(X_train), axis=-1))  # modified line
     
+    # Fit the data generator
+    datagen.fit(np.array(X_train))  # Removed the extra dimension addition
+    
+    # Early stopping
     early_stopping = EarlyStopping(monitor='val_loss', patience=3)
     
+    # Training the model
     model.fit(datagen.flow(np.array(X_train), np.array(y_train), batch_size=32),
               epochs=epochs, validation_data=(np.array(X_test), np.array(y_test)),
               callbacks=[early_stopping])
     
+    # Save the model
     model.save(os.path.join(output_folder, model_path))
     print("Model Saved")
+
+# Remember to type this code manually for better retention!
 
 def start_training():
     num_epochs = int(epochs_entry.get())
