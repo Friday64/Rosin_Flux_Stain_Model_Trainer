@@ -9,6 +9,7 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
+from keras.regularizers import l2
 import tensorflow as tf
 import threading
 
@@ -49,6 +50,7 @@ def preprocess_and_load_images(folder, label):
 
 def create_model():
     model = Sequential()
+    model.add(Dense(128, activation='relu', kernel_regularizer=l2(0.01)))
     model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 3)))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Conv2D(64, (3, 3), activation='relu'))
