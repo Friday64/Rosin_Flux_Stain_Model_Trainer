@@ -9,7 +9,8 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
-from tensorflow.lite import TFLiteConverter
+import tensorflow as tf
+import tensorflow as tf
 import threading
 
 # Global Variables
@@ -61,7 +62,8 @@ def create_model():
     return model
 
 def convert_to_tflite(model):
-    converter = TFLiteConverter.from_keras_model(model)
+
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
     tflite_model = converter.convert()
     with open(os.path.join(output_folder, "Flux_Stain_Model.tflite"), "wb") as f:
         f.write(tflite_model)
