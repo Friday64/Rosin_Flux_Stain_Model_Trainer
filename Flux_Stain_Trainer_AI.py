@@ -10,7 +10,6 @@ from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
 import tensorflow as tf
-import tensorflow as tf
 import threading
 
 # Global Variables
