@@ -4,12 +4,14 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 from sklearn.model_selection import train_test_split
+from tensorflow import keras
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
-from keras.regularizers import l2
+from keras.regularizers import l2, l1
+import tensorflow_model_optimization as tfmot
 import tensorflow as tf
 import threading
 
@@ -49,19 +51,54 @@ def preprocess_and_load_images(folder, label):
     return processed_images
 
 def create_model():
+    """
+    Creates a simplified Convolutional Neural Network (CNN) model for classifying images with or without flux stains.
+
+    Returns:
+        keras.models.Sequential: The CNN model
+    """
+    # Initialize the model
     model = Sequential()
-    model.add(Dense(128, activation='relu', kernel_regularizer=l2(0.01)))
-    model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 3)))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
     model.add(Dropout(0.5))
+    # Add layers
+    model.add(Conv2D(16, (3, 3), activation='relu', input_shape=(100, 100, 3)))  # Reduced from 32 to 16 filters
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    # Removed a Conv2D and MaxPooling2D layer to simplify the model
+
+    model.add(Flatten())
+    model.add(Dense(64, activation='relu'))  # Reduced from 128 to 64 neurons
+    model.add(Dense(128, activation='relu', kernel_regularizer=l1(0.001)))
+    model.add(Dropout(0.5))
+    
+    # Output layer
     model.add(Dense(2, activation='softmax'))
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+   # Compile the model
+    model.compile(optimizer=keras.optimizers.Adam(lr=0.001),  # Change lr to your desired learning rate
+        loss='categorical_crossentropy',
+        metrics=['accuracy'])
+
     return model
 
+def apply_pruning_to_layers(model):
+    """
+    Apply pruning to the layers of the model.
+
+    Parameters:
+        model (keras.models.Sequential): Original Keras model.
+
+    Returns:
+        keras.models.Sequential: Pruned Keras model.
+    """
+    # Only prune layers that are Conv2D or Dense
+    pruning_params = {'pruning_schedule': tfmot.sparsity.keras.PolynomialDecay(
+                        initial_sparsity=0.50, final_sparsity=0.90,
+                        begin_step=0, end_step=10000)}
+
+    model_for_pruning = tfmot.sparsity.keras.prune_low_magnitude(model, **pruning_params)
+
+    return model_for_pruning
 def convert_to_tflite(model):
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
@@ -74,31 +111,47 @@ def train_model(epochs):
     global stop_training
     stop_training = False
     
+    # Path to save or load the model
     model_path = os.path.join(output_folder, 'Flux_Stain_Model.h5')
-    model = load_model(model_path) if os.path.exists(model_path) else create_model()
-
+    
+    # Check if the model already exists, if so load it, otherwise create a new one
+    if os.path.exists(model_path):
+        model = load_model(model_path)
+    else:
+        model = create_model()
+        
+    # Apply pruning to the model
+    model_for_pruning = apply_pruning_to_layers(model)
+    
+    # Preprocess and load images
     with_flux_data = preprocess_and_load_images(with_flux_folder, 0)
     without_flux_data = preprocess_and_load_images(without_flux_folder, 1)
     all_data = with_flux_data + without_flux_data
-
+    
+    # Prepare the datasets
     X = np.array([i[0] for i in all_data])
     y = to_categorical([i[1] for i in all_data])
-
+    
+    # Split the dataset
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     
-    early_stop = EarlyStopping(monitor='val_loss', patience=3, verbose=1)
+    # Early stopping callback
+    early_stop = EarlyStopping(monitor='val_loss', patience=2, verbose=1)
+    
+    # Train the model
     model.fit(X_train, y_train, epochs=epochs, validation_data=(X_test, y_test), callbacks=[early_stop])
     
+    # Save the trained model
     model.save(model_path)
+    
+    # Save the pruned model
+    model_for_pruning.save(os.path.join(output_folder, 'Pruned_Flux_Stain_Model.h5'))
+    print("Pruned model training complete and saved!")
+    
+    # Convert to TFLite
     if not stop_training:
         convert_to_tflite(model)
     
-    print("Model training complete and saved!")
-
-
-    model.save(model_path)
-    if not stop_training:
-        convert_to_tflite(model)
     print("Model training complete and saved!")
 
 def start_training_thread():
