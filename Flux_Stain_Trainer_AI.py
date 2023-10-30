@@ -12,6 +12,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
 from keras.regularizers import l2, l1
 import tensorflow_model_optimization as tfmot
+from keras.callbacks import LambdaCallback
 import tensorflow as tf
 import threading
 
@@ -36,19 +37,59 @@ def browse_output(label_widget):
     output_folder = filedialog.askdirectory(title="Select Output Folder")
     if output_folder:
         label_widget.config(text=output_folder)
+def preprocess_and_load_images(directory_path, img_size):
+    """Load and preprocess images from a directory."""
+    images = []
+    labels = []
 
-def preprocess_and_load_images(folder, label):
-    if not os.path.exists(folder):
-        print(f"Folder {folder} does not exist.")
-        return []
-    processed_images = []
-    for filename in os.listdir(folder):
-        if filename.endswith(".jpg"):
-            img = cv2.imread(os.path.join(folder, filename))
-            img_resized = cv2.resize(img, (100, 100))
-            img_normalized = img_resized / 255.0
-            processed_images.append((img_normalized, label))
-    return processed_images
+    # Determine label based on folder name
+    folder_name = os.path.basename(directory_path)
+    if folder_name == "WithFlux":  # Change "WithFlux" to the exact folder name you're using
+        label = 1
+    else:
+        label = 0
+
+    # Iterate through each image in the directory
+    for img_path in os.listdir(directory_path):
+        # Read the image
+        img = cv2.imread(os.path.join(directory_path, img_path))
+        
+        # Check if the image was read properly
+        if img is None:
+            print(f"Error reading image: {img_path}")
+            continue
+
+        # Ensure the image dimensions are not zero
+        if img.shape[0] == 0 or img.shape[1] == 0:
+            print(f"Image has invalid dimensions: {img_path}")
+            continue
+        
+        # Convert the image to RGB (OpenCV loads images in BGR by default)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        # Enhance contrast and brightness
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        cl = clahe.apply(l)
+        limg = cv2.merge((cl, a, b))
+        img = cv2.cvtColor(limg, cv2.COLOR_LAB2RGB)
+        
+        # Resize the image to the specified dimensions
+        img = cv2.resize(img, (img_size, img_size))
+        
+        # Normalize the image pixels to be between 0 and 1
+        img = img / 255.0
+        
+        # Append the image and its corresponding label to the lists
+        images.append(img)
+        labels.append(label)
+    
+    # Convert lists to numpy arrays
+    images = np.array(images)
+    labels = np.array(labels)
+    
+    return list(zip(images, labels))
 
 def create_model():
     """
@@ -58,26 +99,29 @@ def create_model():
         keras.models.Sequential: The CNN model
     """
     # Initialize the model
-    model = Sequential()
-    model.add(Dropout(0.5))
-    # Add layers
-    model.add(Conv2D(16, (3, 3), activation='relu', input_shape=(100, 100, 3)))  # Reduced from 32 to 16 filters
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model = keras.Sequential()
+      # Modify the input shape to 128x128x3
+    model.add(keras.layers.InputLayer(input_shape=(128, 128, 3)))
 
-    # Removed a Conv2D and MaxPooling2D layer to simplify the model
-
-    model.add(Flatten())
-    model.add(Dense(64, activation='relu'))  # Reduced from 128 to 64 neurons
-    model.add(Dense(128, activation='relu', kernel_regularizer=l1(0.001)))
-    model.add(Dropout(0.5))
+    model.add(keras.layers.Conv2D(32, (3, 3), activation='relu'))
+    model.add(keras.layers.MaxPooling2D((2, 2)))
+    model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(keras.layers.MaxPooling2D((2, 2)))
+    model.add(keras.layers.Conv2D(128, (3, 3), activation='relu'))
+    model.add(keras.layers.MaxPooling2D((2, 2)))
     
-    # Output layer
-    model.add(Dense(2, activation='softmax'))
+    model.add(keras.layers.Flatten())
+    model.add(keras.layers.Dense(128, activation='relu'))
+    model.add(keras.layers.Dense(2, activation='softmax'))
+    # Add this where you're defining your model architecture
+    model.add(Dense(2, activation='softmax'))  # Final output layer
+
 
    # Compile the model
-    model.compile(optimizer=keras.optimizers.Adam(lr=0.001),  # Change lr to your desired learning rate
-        loss='categorical_crossentropy',
-        metrics=['accuracy'])
+    # Update your model compilation line
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
 
     return model
 
@@ -107,12 +151,10 @@ def convert_to_tflite(model):
         f.write(tflite_model)
     print("Model converted to TFLite format.")
 
-def train_model(epochs):
-    global stop_training
-    stop_training = False
-    
+def train_model(epochs, Flux_Model):
+  
     # Path to save or load the model
-    model_path = os.path.join(output_folder, 'Flux_Stain_Model.h5')
+    model_path = os.path.join(output_folder, f'{Flux_Model}.h5')
     
     # Check if the model already exists, if so load it, otherwise create a new one
     if os.path.exists(model_path):
@@ -124,8 +166,8 @@ def train_model(epochs):
     model_for_pruning = apply_pruning_to_layers(model)
     
     # Preprocess and load images
-    with_flux_data = preprocess_and_load_images(with_flux_folder, 0)
-    without_flux_data = preprocess_and_load_images(without_flux_folder, 1)
+    with_flux_data = preprocess_and_load_images(with_flux_folder, 128)
+    without_flux_data = preprocess_and_load_images(without_flux_folder, 128)
     all_data = with_flux_data + without_flux_data
     
     # Prepare the datasets
@@ -135,17 +177,26 @@ def train_model(epochs):
     # Split the dataset
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     
+    y_train_onehot = to_categorical(y_train)
+    y_test_onehot = to_categorical(y_test)
+
+# Call the training function
+    threading.Thread(target=train_model, args=(model, X_train, y_train_onehot, X_test, y_test_onehot)).start()  # Update the arguments
+
     # Early stopping callback
     early_stop = EarlyStopping(monitor='val_loss', patience=2, verbose=1)
+
+    # Custom callback to toggle training status
+    toggle_training_status = LambdaCallback(on_epoch_end=lambda epoch, logs: stop_training if stop_training else None)
     
     # Train the model
-    model.fit(X_train, y_train, epochs=epochs, validation_data=(X_test, y_test), callbacks=[early_stop])
+    model.fit(X_train, y_train_onehot, epochs=10, validation_data=(X_test, y_test_onehot))
     
     # Save the trained model
     model.save(model_path)
     
     # Save the pruned model
-    model_for_pruning.save(os.path.join(output_folder, 'Pruned_Flux_Stain_Model.h5'))
+    model_for_pruning.save(os.path.join(output_folder, f'Pruned_{Flux_Model}.h5'))
     print("Pruned model training complete and saved!")
     
     # Convert to TFLite
@@ -154,16 +205,21 @@ def train_model(epochs):
     
     print("Model training complete and saved!")
 
+
 def start_training_thread():
     try:
         num_epochs = int(epochs_entry.get())
+        Flux_Model = "Flux_Detector_Model"  # You can rename this as you like
         if num_epochs < 1:
             print("Please enter a valid number of epochs.")
             return
         print(f"Training started with {num_epochs} epochs.")
-        threading.Thread(target=train_model, args=(num_epochs,)).start()
+        # Starting the training in a new thread
+        training_thread = threading.Thread(target=train_model, args=(num_epochs, Flux_Model))
+        training_thread.start()
     except ValueError:
         print("Please enter a valid number for epochs.")
+
 
 def stop_training():
     global stop_training
