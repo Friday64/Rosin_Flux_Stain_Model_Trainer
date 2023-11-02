@@ -22,9 +22,9 @@ import threading
 stop_training = False
 
 # Hardcoded folder paths
-with_flux_folder = "C:\Users\Matthew\Desktop\With_Flux"
-without_flux_folder = "C:\Users\Matthew\Desktop\Without_Flux"
-output_folder = "C:\Users\Matthew\Desktop\Flux_Models"
+with_flux_folder = "C:/Users/Matthew/Desktop/With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Flux_Models"
     
 # Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
