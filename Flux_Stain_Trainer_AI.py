@@ -4,7 +4,7 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 from sklearn.model_selection import train_test_split
-from tensorflow import keras
+from tensorflow_model_optimization.python.core.sparsity.keras.pruning_callbacks import UpdatePruningStep
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from keras.callbacks import EarlyStopping
@@ -46,7 +46,9 @@ def create_model():
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
     model.add(Dense(2, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    
+    
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 # Function to convert the model to TFLite
@@ -60,8 +62,15 @@ def convert_to_tflite(model):
 def apply_pruning_to_layers(model):
     return tfmot.sparsity.keras.prune_low_magnitude(model)
 
+# Add UpdatePruningStep callback
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=3),
+    UpdatePruningStep()  # <-- This is the missing part
+]
+
 # Function to train the model
 def train_model(epochs, Flux_Model):
+    Flux_Model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     train_data = preprocess_and_load_images(with_flux_folder, (28, 28))
     train_labels = np.ones(train_data.shape[0])
     test_data = preprocess_and_load_images(without_flux_folder, (28, 28))
@@ -73,11 +82,12 @@ def train_model(epochs, Flux_Model):
     x_test = np.expand_dims(x_test, axis=-1)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-    Flux_Model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=[EarlyStopping(monitor='val_loss', patience=3)], verbose=1)
+    Flux_Model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=callbacks, verbose=1)
     Flux_Model.save(f"{output_folder}/flux_model.h5")
     convert_to_tflite(Flux_Model)
 
 # Function to stop training
+
 def stop_training_model():
     global stop_training
     stop_training = True
