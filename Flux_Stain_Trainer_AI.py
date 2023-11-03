@@ -2,108 +2,165 @@ import os
 import cv2
 import numpy as np
 import tkinter as tk
-from tkinter import filedialog
-from sklearn.model_selection import train_test_split
-from tensorflow_model_optimization.python.core.sparsity.keras.pruning_callbacks import UpdatePruningStep
-from keras.models import Sequential, load_model
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
-from keras.callbacks import EarlyStopping
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils import to_categorical
-from keras.regularizers import l2, l1
 from keras.models import Sequential
-from keras.layers import Dense
-import tensorflow_model_optimization as tfmot
-from keras.callbacks import LambdaCallback
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
+from keras.callbacks import EarlyStopping
+from keras.utils import to_categorical
+from keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
 import tensorflow as tf
-import threading
+
+
+#paths to image folders
+with_flux_folder = "C:/Users/Matthew/Desktop/With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Flux_Models"
+
+
+# Size to which images will be resized
+img_size = (28, 28)  # This is an example size, you should adjust it according to your needs
+
 
 # Global flag to control training
 stop_training = False
 
-# Hardcoded folder paths
-with_flux_folder = "C:/Users/Matthew/Desktop/With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Flux_Models"
+def convert_to_tflite(model):
+    # Convert the model to the TensorFlow Lite format
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tflite_model = converter.convert()
     
+    # Save the TensorFlow Lite model to a file
+    tflite_model_path = f"{output_folder}/flux_detector.tflite"
+    with open(tflite_model_path, "wb") as f:
+        f.write(tflite_model)
+    print(f"Model converted to TensorFlow Lite format and saved at {tflite_model_path}")
+
 # Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
-    image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path)]
-    dataset = []
-    for image_file in image_files:
-        img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-        img = cv2.resize(img, img_size)
-        dataset.append(img)
-    return np.array(dataset)
+    """
+    Preprocesses and loads images from a given directory path.
+    Images are converted to grayscale and resized to img_size.
 
+    :param directory_path: Path to the directory containing images.
+    :param img_size: Tuple representing the size to resize images to.
+    :return: A numpy array of preprocessed images.
+    """
 
-def create_model():
+    # Get a list of image file paths from the directory
+    image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+
+    # Preallocate a numpy array for the dataset for efficiency
+    dataset = np.zeros((len(image_files), img_size[0], img_size[1]), dtype=np.float32)
+
+    # Loop over the image files using enumerate to keep an index
+    for idx, image_file in enumerate(image_files):
+        try:
+            # Read the image as grayscale
+            img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+
+            # Check if the image was loaded properly
+            if img is not None:
+                # Resize the image to the specified size
+                img = cv2.resize(img, img_size)
+
+                # Normalize the image data to 0-1 range
+                img = img / 255.0
+
+                # Add the processed image to the dataset
+                dataset[idx] = img
+            else:
+                # Log an error message if the image couldn't be loaded
+                print(f"Warning: Image {image_file} could not be loaded and will be skipped.")
+
+        except Exception as e:
+            # Log an error message if something goes wrong
+            print(f"Error processing image {image_file}: {e}")
+
+    # Log the completion of the loading process
+    print(f"Finished loading and preprocessing {len(dataset)} images from {directory_path}")
+
+    # Return the preprocessed dataset
+    return dataset
+
+# Function to create the machine learning model
+def create_model(input_shape=(28, 28, 1), num_classes=2):
     model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)))
+    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=input_shape))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
-    model.add(Dense(2, activation='softmax'))
-    
-    
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.add(Dense(num_classes, activation='softmax'))
+
+    model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-# Function to convert the model to TFLite
-def convert_to_tflite(model):
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    tflite_model = converter.convert()
-    with open(f"{output_folder}/flux_detector.tflite", "wb") as f:
-        f.write(tflite_model)
-
-# Function to apply pruning to model layers
-def apply_pruning_to_layers(model):
-    return tfmot.sparsity.keras.prune_low_magnitude(model)
-
-# Add UpdatePruningStep callback
-callbacks = [
-    EarlyStopping(monitor='val_loss', patience=3),
-    UpdatePruningStep()  # <-- This is the missing part
-]
-
 # Function to train the model
-def train_model(epochs, Flux_Model):
-    Flux_Model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+def train_model(epochs, model, callbacks_list):
+    # Ensure 'model' is an instance of a Keras model
+    if not isinstance(model, tf.keras.Model):
+        raise ValueError("The 'model' argument must be an instance of a Keras model.")
+
+    # Preprocess the images for training and testing
     train_data = preprocess_and_load_images(with_flux_folder, (28, 28))
     train_labels = np.ones(train_data.shape[0])
     test_data = preprocess_and_load_images(without_flux_folder, (28, 28))
     test_labels = np.zeros(test_data.shape[0])
+
+    # Concatenate train and test data for splitting
     data = np.vstack([train_data, test_data])
     labels = np.hstack([train_labels, test_labels])
+    
+    # Split into training and testing sets
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)
+    
+    # Reshape for the neural network (assuming TensorFlow channel-last format)
     x_train = np.expand_dims(x_train, axis=-1)
     x_test = np.expand_dims(x_test, axis=-1)
+    
+    # Convert labels to categorical (one-hot encoding)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-    Flux_Model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=callbacks, verbose=1)
-    Flux_Model.save(f"{output_folder}/flux_model.h5")
-    convert_to_tflite(Flux_Model)
+
+    try:
+        # Train the model
+        history = model.fit(
+            x_train, y_train, 
+            validation_data=(x_test, y_test), 
+            epochs=epochs,
+            batch_size=64, 
+            callbacks=callbacks_list, 
+            verbose=1
+        )
+
+        # Check if training was successful
+        if not stop_training:
+            # Save the trained model
+            model.save(f"{output_folder}/flux_model.h5")
+            print("Model trained and saved successfully.")
+
+            # Convert to TensorFlow Lite format
+            convert_to_tflite(model)
+        else:
+            print("Training was stopped prematurely.")
+    except Exception as e:
+        print(f"An error occurred during training: {e}")
 
 # Function to stop training
-
-def stop_training_model():
+def halt_training():
     global stop_training
-    stop_training = True
+    stop_training = True  # This will be checked within the training loop or callback to stop the training
 
-def start_training_thread():
-    global stop_training  # Reset the flag when starting new training
-    stop_training = False
-    epochs = int(epochs_entry.get())
-    Flux_Model = create_model()
-    Flux_Model = apply_pruning_to_layers(Flux_Model)
-    threading.Thread(target=train_model, args=(epochs, Flux_Model)).start()
-
-def stop_training():
-    global stop_training  # Access the global variable
-    stop_training = True  # Set it to True to stop training
-
+def start_training():
+    try:
+        epochs = int(epochs_entry.get())  # Ensure this is a valid integer
+    except ValueError:
+        print("Number of epochs is not a valid integer.")
+        return
+    model = create_model(input_shape=(28, 28, 1), num_classes=2)
+    callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
+    train_model(epochs, model, callbacks_list)
 
 # Initialize Tkinter window
 window = tk.Tk()
@@ -113,8 +170,11 @@ window.title("Flux Stain Detector")
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
-tk.Button(window, text="Train Model", command=start_training_thread).pack()
-tk.Button(window, text="Stop Training", command=stop_training_model).pack()
 
+train_button = tk.Button(window, text="Train Model", command=start_training)
+train_button.pack()
+tk.Button(window, text="Stop Training", command=halt_training)
+stop_button = tk.Button(window, text="Stop Training", command=halt_training)
+stop_button.pack()
 # Run the Tkinter event loop
 window.mainloop()
