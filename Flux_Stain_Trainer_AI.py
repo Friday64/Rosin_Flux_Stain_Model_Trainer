@@ -1,14 +1,24 @@
-import os
-import cv2
-import numpy as np
-import tkinter as tk
-from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
-from keras.callbacks import EarlyStopping
-from keras.utils import to_categorical
-from keras.optimizers import Adam
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
+
+# Standard library imports
+import os  # For operating system dependent functionality
+
+# Third-party libraries for numerical operations and array handling
+import numpy as np  # NumPy for numerical operations
+import cv2  # OpenCV for computer vision tasks
+
+# Deep learning and neural network frameworks
+import tensorflow as tf  # TensorFlow for machine learning and neural network operations
+from keras.models import Sequential  # Sequential for linear stack of neural network layers
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
+from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
+from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
+from keras.optimizers import Adam  # Adam optimizer for training neural networks
+
+# Machine learning utilities
+from sklearn.model_selection import train_test_split  # train_test_split to split datasets into training and test sets
+
+# GUI application library
+import tkinter as tk  # tkinter for GUI applications
 
 
 #paths to image folders
@@ -18,7 +28,7 @@ output_folder = "C:/Users/Matthew/Desktop/Flux_Models"
 
 
 # Size to which images will be resized
-img_size = (28, 28)  # This is an example size, you should adjust it according to your needs
+img_size = (28, 28)  # This is an example size, you should adjust it according to your needsls
 
 
 # Global flag to control training
