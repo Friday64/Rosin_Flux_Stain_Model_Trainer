@@ -28,7 +28,7 @@ output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_M
 
 
 # Size to which images will be resized
-img_size = (28, 28)  # This is an example size, you should adjust it according to your needsls
+img_size = (128, 128) 
 
 
 # Global flag to control training
@@ -83,9 +83,9 @@ def preprocess_and_load_images(directory_path, img_size):
     return dataset
 
 # Function to create the machine learning model
-def create_model(input_shape=(28, 28, 1), num_classes=2):
+def create_model(input_shape=(128,128, 1), num_classes=2):
     model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=input_shape))
+    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape = input_shape))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -103,9 +103,9 @@ def train_model(epochs, model, callbacks_list):
         raise ValueError("The 'model' argument must be an instance of a Keras model.")
 
     # Preprocess the images for training and testing
-    train_data = preprocess_and_load_images(with_flux_folder, (28, 28))
+    train_data = preprocess_and_load_images(with_flux_folder, (256, 256))
     train_labels = np.ones(train_data.shape[0])
-    test_data = preprocess_and_load_images(without_flux_folder, (28, 28))
+    test_data = preprocess_and_load_images(without_flux_folder, (256, 256))
     test_labels = np.zeros(test_data.shape[0])
 
     # Concatenate train and test data for splitting
