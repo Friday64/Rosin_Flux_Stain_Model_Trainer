@@ -22,9 +22,9 @@ import tkinter as tk  # tkinter for GUI applications
 
 
 #paths to image folders
-with_flux_folder = "C:/Users/Matthew/Programming/Desktop/With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Programming/Flux_Models"
+with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
 
 # Size to which images will be resized
