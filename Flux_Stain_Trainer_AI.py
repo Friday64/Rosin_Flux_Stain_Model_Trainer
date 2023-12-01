@@ -9,6 +9,7 @@ import cv2  # OpenCV for computer vision tasks
 # Deep learning and neural network frameworks
 import tensorflow as tf  # TensorFlow for machine learning and neural network operations
 from keras.models import Sequential  # Sequential for linear stack of neural network layers
+from keras.models import load_model
 from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
 from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
 from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
@@ -156,7 +157,18 @@ def start_training():
     except ValueError:
         print("Number of epochs is not a valid integer.")
         return
-    model = create_model(input_shape=(28, 28, 1), num_classes=2)
+    
+    # Path to the model file
+    model_file_path = f"{output_folder}/flux_model.h5"
+
+    # Check if the model already exists
+    if os.path.exists(model_file_path):
+        print("Loading existing model for retraining...")
+        model = load_model(model_file_path)
+    else:
+        print("Creating a new model...")
+        model = create_model(input_shape=(128, 128, 1), num_classes=2)  # Adjust input_shape as per your data
+
     callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
     train_model(epochs, model, callbacks_list)
 
