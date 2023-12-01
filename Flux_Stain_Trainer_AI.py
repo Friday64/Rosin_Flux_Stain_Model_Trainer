@@ -35,8 +35,15 @@ img_size = (128, 128)
 # Global flag to control training
 stop_training = False
 
-
+# Custom callback to stop training
+class CustomStopTrainingCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        global stop_training
+        if stop_training:
+            print("Stopping training...")
+            self.model.stop_training = True
 # Function to preprocess and load images
+
 def preprocess_and_load_images(directory_path, img_size):
     """
     Preprocesses and loads images from a given directory path.
@@ -99,6 +106,7 @@ def create_model(input_shape=(128,128, 1), num_classes=2):
 
 # Function to train the model
 def train_model(epochs, model, callbacks_list):
+    callbacks_list.append(CustomStopTrainingCallback())
     # Ensure 'model' is an instance of a Keras model
     if not isinstance(model, tf.keras.Model):
         raise ValueError("The 'model' argument must be an instance of a Keras model.")
@@ -183,7 +191,6 @@ epochs_entry.pack()
 
 train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
-tk.Button(window, text="Stop Training", command=halt_training)
 stop_button = tk.Button(window, text="Stop Training", command=halt_training)
 stop_button.pack()
 # Run the Tkinter event loop
