@@ -34,16 +34,6 @@ img_size = (28, 28)  # This is an example size, you should adjust it according t
 # Global flag to control training
 stop_training = False
 
-def convert_to_tflite(model):
-    # Convert the model to the TensorFlow Lite format
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    tflite_model = converter.convert()
-    
-    # Save the TensorFlow Lite model to a file
-    tflite_model_path = f"{output_folder}/flux_detector.tflite"
-    with open(tflite_model_path, "wb") as f:
-        f.write(tflite_model)
-    print(f"Model converted to TensorFlow Lite format and saved at {tflite_model_path}")
 
 # Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
@@ -150,8 +140,6 @@ def train_model(epochs, model, callbacks_list):
             model.save(f"{output_folder}/flux_model.h5")
             print("Model trained and saved successfully.")
 
-            # Convert to TensorFlow Lite format
-            convert_to_tflite(model)
         else:
             print("Training was stopped prematurely.")
     except Exception as e:
