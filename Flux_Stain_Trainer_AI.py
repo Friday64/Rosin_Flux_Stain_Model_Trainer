@@ -104,6 +104,7 @@ def create_model(input_shape=(128, 128, 1), num_classes=2):
     model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
+
 # Function to train the model
 def train_model(epochs, model, callbacks_list):
     callbacks_list.append(CustomStopTrainingCallback())
