@@ -4,14 +4,14 @@ import numpy as np  # NumPy for numerical operations
 import cv2  # OpenCV for computer vision tasks
 import tensorflow as tf  # TensorFlow for machine learning and neural network operations
 from keras.models import Sequential  # Sequential for linear stack of neural network layers
-from keras.models import load_model
+from keras.models import load_model # load_model for loading existing models
 from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
 from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
 from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
 from keras.optimizers import Adam  # Adam optimizer for training neural networks
 from sklearn.model_selection import train_test_split  # train_test_split to split datasets into training and test sets
 import tkinter as tk  # tkinter for GUI applications
-import threading
+import threading # threading for multithreading
 
 # Paths to image folders
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
