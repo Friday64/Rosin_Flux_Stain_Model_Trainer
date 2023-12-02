@@ -7,11 +7,11 @@ import cv2  # OpenCV for computer vision tasks
 
 # Deep learning and neural network frameworks
 import tensorflow as tf  # TensorFlow for machine learning and neural network operations
-from tensorflow.keras.models import Sequential  # Sequential for a linear stack of neural network layers
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
-from tensorflow.keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
-from tensorflow.keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
-from tensorflow.keras.optimizers import Adam  # Adam optimizer for training neural networks
+from keras.models import Sequential  # Sequential for a linear stack of neural network layers
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
+from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
+from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
+from keras.optimizers import Adam  # Adam optimizer for training neural networks
 
 # Machine learning utilities
 from sklearn.model_selection import train_test_split  # train_test_split to split datasets into training and test sets
