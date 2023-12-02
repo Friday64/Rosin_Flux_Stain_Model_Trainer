@@ -1,4 +1,3 @@
-
 # Standard library imports
 import os  # For operating system dependent functionality
 
@@ -8,12 +7,11 @@ import cv2  # OpenCV for computer vision tasks
 
 # Deep learning and neural network frameworks
 import tensorflow as tf  # TensorFlow for machine learning and neural network operations
-from keras.models import Sequential  # Sequential for linear stack of neural network layers
-from keras.models import load_model
-from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
-from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
-from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
-from keras.optimizers import Adam  # Adam optimizer for training neural networks
+from tensorflow.keras.models import Sequential  # Sequential for a linear stack of neural network layers
+from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
+from tensorflow.keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
+from tensorflow.keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
+from tensorflow.keras.optimizers import Adam  # Adam optimizer for training neural networks
 
 # Machine learning utilities
 from sklearn.model_selection import train_test_split  # train_test_split to split datasets into training and test sets
@@ -21,16 +19,13 @@ from sklearn.model_selection import train_test_split  # train_test_split to spli
 # GUI application library
 import tkinter as tk  # tkinter for GUI applications
 
-
-#paths to image folders
+# Paths to image folders
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
-
 # Size to which images will be resized
-img_size = (128, 128) 
-
+img_size = (128, 128)
 
 # Global flag to control training
 stop_training = False
@@ -42,8 +37,8 @@ class CustomStopTrainingCallback(tf.keras.callbacks.Callback):
         if stop_training:
             print("Stopping training...")
             self.model.stop_training = True
-# Function to preprocess and load images
 
+# Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
     """
     Preprocesses and loads images from a given directory path.
@@ -58,7 +53,7 @@ def preprocess_and_load_images(directory_path, img_size):
     image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
     # Preallocate a numpy array for the dataset for efficiency
-    dataset = np.zeros((len(image_files), img_size[0], img_size[1]), dtype=np.float32)
+    dataset = np.zeros((len(image_files), img_size[0], img_size[1], 1), dtype=np.float32)
 
     # Loop over the image files using enumerate to keep an index
     for idx, image_file in enumerate(image_files):
@@ -75,7 +70,8 @@ def preprocess_and_load_images(directory_path, img_size):
                 img = img / 255.0
 
                 # Add the processed image to the dataset
-                dataset[idx] = img
+                dataset[idx, :, :, 0] = img  # Use the last dimension for channel
+
             else:
                 # Log an error message if the image couldn't be loaded
                 print(f"Warning: Image {image_file} could not be loaded and will be skipped.")
@@ -104,7 +100,6 @@ def create_model(input_shape=(128, 128, 1), num_classes=2):
     model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-
 # Function to train the model
 def train_model(epochs, model, callbacks_list):
     callbacks_list.append(CustomStopTrainingCallback())
@@ -121,26 +116,22 @@ def train_model(epochs, model, callbacks_list):
     # Concatenate train and test data for splitting
     data = np.vstack([train_data, test_data])
     labels = np.hstack([train_labels, test_labels])
-    
+
     # Split into training and testing sets
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)
-    
-    # Reshape for the neural network (assuming TensorFlow channel-last format)
-    x_train = np.expand_dims(x_train, axis=-1)
-    x_test = np.expand_dims(x_test, axis=-1)
-    
+
     # Convert labels to categorical (one-hot encoding)
-    y_train = to_categorical(y_train)
-    y_test = to_categorical(y_test)
+    y_train = to_categorical(y_train, num_classes=2)
+    y_test = to_categorical(y_test, num_classes=2)
 
     try:
         # Train the model
         history = model.fit(
-            x_train, y_train, 
-            validation_data=(x_test, y_test), 
+            x_train, y_train,
+            validation_data=(x_test, y_test),
             epochs=epochs,
-            batch_size=64, 
-            callbacks=callbacks_list, 
+            batch_size=64,
+            callbacks=callbacks_list,
             verbose=1
         )
 
@@ -166,14 +157,14 @@ def start_training():
     except ValueError:
         print("Number of epochs is not a valid integer.")
         return
-    
+
     # Path to the model file
     model_file_path = f"{output_folder}/flux_model.h5"
 
     # Check if the model already exists
     if os.path.exists(model_file_path):
-        print("Loading existing model for retraining...")
-        model = load_model(model_file_path)
+        print("Loading an existing model for retraining...")
+        model = tf.keras.models.load_model(model_file_path)
     else:
         print("Creating a new model...")
         model = create_model(input_shape=(128, 128, 1), num_classes=2)  # Adjust input_shape as per your data
@@ -194,5 +185,6 @@ train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
 stop_button = tk.Button(window, text="Stop Training", command=halt_training)
 stop_button.pack()
+
 # Run the Tkinter event loop
 window.mainloop()
