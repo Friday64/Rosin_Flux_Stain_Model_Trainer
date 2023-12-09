@@ -3,20 +3,25 @@ import os  # For operating system dependent functionality
 import numpy as np  # NumPy for numerical operations
 import cv2  # OpenCV for computer vision tasks
 import tensorflow as tf  # TensorFlow for machine learning and neural network operations
-from keras.models import Sequential  # Sequential for linear stack of neural network layers
-from keras.models import load_model # load_model for loading existing models
+from keras.models import Sequential, load_model # Sequential and load_model for neural network operations
 from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D  # Various layers for neural networks
-from keras.callbacks import EarlyStopping  # EarlyStopping to stop training when a monitored metric stops improving
-from keras.utils import to_categorical  # to_categorical for converting labels to one-hot encoded format
-from keras.optimizers import Adam  # Adam optimizer for training neural networks
-from sklearn.model_selection import train_test_split  # train_test_split to split datasets into training and test sets
+from keras.callbacks import EarlyStopping, Callback  # Callbacks for training control
+from keras.utils import to_categorical  # to_categorical for label encoding
+from keras.optimizers import Adam  # Adam optimizer for training
+from sklearn.model_selection import train_test_split  # train_test_split to split data
 import tkinter as tk  # tkinter for GUI applications
-import threading # threading for multithreading
+import threading # threading for running operations in parallel
 
-# Paths to image folders
+# TensorRT and CUDA imports for inference on Jetson Nano
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
+
+# Paths to image folders and model
 with_flux_folder = "/home/matt/desktop/With_Flux"
 without_flux_folder = "/home/matt/desktop/Without_Flux"
 output_folder = "/home/matt/desktop/Flux_Models"
+trt_engine_path = "/home/matt/desktop/Flux_Models/flux_model.trt"  # Path to the TensorRT engine file
 
 # Size to which images will be resized
 img_size = (128, 128)
@@ -25,7 +30,7 @@ img_size = (128, 128)
 stop_training = False
 
 # Custom callback to stop training
-class CustomStopTrainingCallback(tf.keras.callbacks.Callback):
+class CustomStopTrainingCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         global stop_training
         if stop_training:
@@ -34,40 +39,20 @@ class CustomStopTrainingCallback(tf.keras.callbacks.Callback):
 
 # Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
-    # Get a list of image file paths from the directory
     image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-
-    # Preallocate a numpy array for the dataset for efficiency
     dataset = np.zeros((len(image_files), img_size[0], img_size[1]), dtype=np.float32)
-
-    # Loop over the image files using enumerate to keep an index
     for idx, image_file in enumerate(image_files):
         try:
-            # Read the image as grayscale
             img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-
-            # Check if the image was loaded properly
             if img is not None:
-                # Resize the image to the specified size
                 img = cv2.resize(img, img_size)
-
-                # Normalize the image data to 0-1 range
                 img = img / 255.0
-
-                # Add the processed image to the dataset
                 dataset[idx] = img
             else:
-                # Log an error message if the image couldn't be loaded
                 print(f"Warning: Image {image_file} could not be loaded and will be skipped.")
-
         except Exception as e:
-            # Log an error message if something goes wrong
             print(f"Error processing image {image_file}: {e}")
-
-    # Log the completion of the loading process
     print(f"Finished loading and preprocessing {len(dataset)} images from {directory_path}")
-
-    # Return the preprocessed dataset
     return dataset
 
 # Function to create the machine learning model
@@ -80,52 +65,28 @@ def create_model(input_shape=(128, 128, 1), num_classes=2):
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
     model.add(Dense(num_classes, activation='softmax'))
-
     model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 # Function to train the model in a separate thread
 def train_model_thread(epochs, model, callbacks_list):
     callbacks_list.append(CustomStopTrainingCallback())
-
-    # Preprocess the images for training and testing
-    train_data = preprocess_and_load_images(with_flux_folder, (128, 128))
+    train_data = preprocess_and_load_images(with_flux_folder, img_size)
     train_labels = np.ones(train_data.shape[0])
-    test_data = preprocess_and_load_images(without_flux_folder, (128, 128))
+    test_data = preprocess_and_load_images(without_flux_folder, img_size)
     test_labels = np.zeros(test_data.shape[0])
-
-    # Concatenate train and test data for splitting
     data = np.vstack([train_data, test_data])
     labels = np.hstack([train_labels, test_labels])
-
-    # Split into training and testing sets
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)
-
-    # Reshape for the neural network (assuming TensorFlow channel-last format)
     x_train = np.expand_dims(x_train, axis=-1)
     x_test = np.expand_dims(x_test, axis=-1)
-
-    # Convert labels to categorical (one-hot encoding)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-
     try:
-        # Train the model
-        history = model.fit(
-            x_train, y_train, 
-            validation_data=(x_test, y_test), 
-            epochs=epochs,
-            batch_size=64, 
-            callbacks=callbacks_list, 
-            verbose=1
-        )
-
-        # Check if training was successful
+        history = model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=callbacks_list, verbose=1)
         if not stop_training:
-            # Save the trained model
             model.save(f"{output_folder}/flux_model.h5")
             print("Model trained and saved successfully.")
-
         else:
             print("Training was stopped prematurely.")
     except Exception as e:
@@ -134,35 +95,53 @@ def train_model_thread(epochs, model, callbacks_list):
 # Function to start training in a separate thread
 def start_training_thread():
     try:
-        epochs = int(epochs_entry.get())  # Ensure this is a valid integer
+        epochs = int(epochs_entry.get())
+        model_file_path = f"{output_folder}/flux_model.h5"
+        if os.path.exists(model_file_path):
+            print("Loading existing model for retraining...")
+            model = load_model(model_file_path)
+        else:
+            print("Creating a new model...")
+            model = create_model(input_shape=(128, 128, 1), num_classes=2)
+        callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
+        training_thread = threading.Thread(target=train_model_thread, args=(epochs, model, callbacks_list))
+        training_thread.start()
     except ValueError:
         print("Number of epochs is not a valid integer.")
-        return
-    
-    # Path to the model file
-    model_file_path = f"{output_folder}/flux_model.h5"
-
-    # Check if the model already exists
-    if os.path.exists(model_file_path):
-        print("Loading existing model for retraining...")
-        model = load_model(model_file_path)
-    else:
-        print("Creating a new model...")
-        model = create_model(input_shape=(128, 128, 1), num_classes=2)  # Adjust input_shape as per your data
-
-    callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
-    
-    # Create a thread for training
-    training_thread = threading.Thread(target=train_model_thread, args=(epochs, model, callbacks_list))
-    
-    # Start the training thread
-    training_thread.start()
 
 # Function to stop training
 def halt_training():
     global stop_training
-    stop_training = True  # This will be checked within the training loop or callback to stop the training
+    stop_training = True
     print("Training stopped by user.")
+
+# TensorRT Inference class
+class TRTInference:
+    def __init__(self, engine_path):
+        self.engine = self.load_engine(engine_path)
+        self.context = self.engine.create_execution_context()
+
+    @staticmethod
+    def load_engine(engine_path):
+        with open(engine_path, 'rb') as f, trt.Runtime(trt.Logger(trt.Logger.WARNING)) as runtime:
+            return runtime.deserialize_cuda_engine(f.read())
+
+    def allocate_buffers(self):
+        h_input = cuda.pagelocked_empty(trt.volume(self.engine.get_binding_shape(0)), dtype=np.float32)
+        h_output = cuda.pagelocked_empty(trt.volume(self.engine.get_binding_shape(1)), dtype=np.float32)
+        d_input = cuda.mem_alloc(h_input.nbytes)
+        d_output = cuda.mem_alloc(h_output.nbytes)
+        return h_input, d_input, h_output, d_output
+
+    def infer(self, input_data):
+        h_input, d_input, h_output, d_output = self.allocate_buffers()
+        cuda.memcpy_htod(d_input, input_data)
+        self.context.execute_v2(bindings=[int(d_input), int(d_output)])
+        cuda.memcpy_dtoh(h_output, d_output)
+        return h_output
+
+# Initialize the TensorRT inference object
+trt_inference = TRTInference(trt_engine_path)
 
 # Initialize Tkinter window
 window = tk.Tk()
