@@ -14,9 +14,9 @@ import tkinter as tk  # tkinter for GUI applications
 import threading # threading for multithreading
 
 # Paths to image folders
-with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
+with_flux_folder = "/home/matt/desktop/With_Flux"
+without_flux_folder = "/home/matt/desktop/Without_Flux"
+output_folder = "/home/matt/desktop/Flux_Models"
 
 # Size to which images will be resized
 img_size = (128, 128)
