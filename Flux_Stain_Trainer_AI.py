@@ -4,8 +4,9 @@ import numpy as np
 import cv2
 import tkinter as tk
 from tkinter import messagebox
+import keras
 from keras.models import Sequential, load_model
-from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Input
 from keras.callbacks import EarlyStopping
 from keras.utils import to_categorical
 from keras.optimizers import Adam
