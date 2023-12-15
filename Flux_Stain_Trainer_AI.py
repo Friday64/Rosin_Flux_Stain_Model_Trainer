@@ -4,24 +4,38 @@ import numpy as np
 import cv2
 import tkinter as tk
 from tkinter import messagebox
-from keras.models import Sequential, load_model
-from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
-from keras.callbacks import EarlyStopping
-from keras.utils import to_categorical
-from keras.optimizers import Adam
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 import threading
 
+# Debugging function to print message with variable state
+def debug_print(message, variable=None):
+    if variable is not None:
+        print(f"DEBUG: {message}: {variable}")
+    else:
+        print(f"DEBUG: {message}")
+
 # Paths to image folders and model
-with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data\With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
+# Linux style paths, ensure these directories are correct on your Jetson Nano
+with_flux_folder = "/path/to/With_Flux"
+without_flux_folder = "/path/to/Without_Flux"
+output_folder = "/path/to/Flux_Models"
 
 # Size to which images will be resized
 img_size = (128, 128)
 
+# Debugging: print paths
+debug_print("With flux folder", with_flux_folder)
+debug_print("Without flux folder", without_flux_folder)
+debug_print("Output folder", output_folder)
+
 # Function to preprocess and load images
 def preprocess_and_load_images(directory_path, img_size):
+    debug_print(f"preprocess_and_load_images called for directory {directory_path}")
     image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
     dataset = np.zeros((len(image_files), img_size[0], img_size[1]), dtype=np.float32)
     for idx, image_file in enumerate(image_files):
@@ -31,11 +45,12 @@ def preprocess_and_load_images(directory_path, img_size):
                 img = cv2.resize(img, img_size)
                 img = img / 255.0
                 dataset[idx] = img
+                debug_print(f"Processing image {image_file}")
             else:
                 print(f"Warning: Image {image_file} could not be loaded and will be skipped.")
         except Exception as e:
             print(f"Error processing image {image_file}: {e}")
-    print(f"Finished loading and preprocessing {len(dataset)} images from {directory_path}")
+    debug_print(f"Loaded images count", len(dataset))
     return dataset
 
 # Function to create the machine learning model
@@ -49,10 +64,12 @@ def create_model(input_shape=(128, 128, 1), num_classes=2):
     model.add(Dense(128, activation='relu'))
     model.add(Dense(num_classes, activation='softmax'))
     model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
+    debug_print("Model created with input shape and num_classes", (input_shape, num_classes))
     return model
 
 # Function to train the model in a separate thread
 def train_model(epochs):
+    debug_print("Training model with epochs", epochs)
     try:
         train_data = preprocess_and_load_images(with_flux_folder, img_size)
         train_labels = np.ones(train_data.shape[0])
@@ -69,27 +86,33 @@ def train_model(epochs):
         model_file_path = f"{output_folder}/flux_model.h5"
         if os.path.exists(model_file_path):
             model = load_model(model_file_path)
+            debug_print("Loaded existing model", model_file_path)
         else:
             model = create_model(input_shape=(128, 128, 1), num_classes=2)
+            debug_print("Created new model")
+
         callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
 
         model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=callbacks_list, verbose=1)
 
         model.save(f"{output_folder}/flux_model.h5")
+        debug_print("Training complete, model saved at", f"{output_folder}/flux_model.h5")
         messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
     except Exception as e:
         messagebox.showerror("Training Error", f"An error occurred during training: {e}")
+        debug_print("Exception occurred during training", e)
 
 # Function to start training in a separate thread
 def start_training():
     epochs = int(epochs_entry.get())
+    debug_print("start_training called, starting thread")
     threading.Thread(target=train_model, args=(epochs,)).start()
 
 # Initialize Tkinter window
 window = tk.Tk()
 window.title("Flux Stain Detector")
 
-# Create UI elements
+# UI elements
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
