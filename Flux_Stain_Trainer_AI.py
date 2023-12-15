@@ -4,9 +4,6 @@ import numpy as np
 import cv2
 import tkinter as tk
 from tkinter import messagebox
-import keras
-from keras.models import Model
-from keras.models import load_model
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
 from keras.callbacks import EarlyStopping
@@ -16,9 +13,9 @@ from sklearn.model_selection import train_test_split
 import threading
 
 # Paths to image folders and model
-with_flux_folder = "/home/matt/desktop/With_Flux"
-without_flux_folder = "/home/matt/desktop/Without_Flux"
-output_folder = "/home/matt/desktop/Flux_Models"
+with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data\With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
 # Size to which images will be resized
 img_size = (128, 128)
