@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 import threading
 from torchvision import transforms
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # Debugging function to print message with variable state
 def debug_print(message, variable=None):
@@ -84,18 +85,30 @@ def train_model_pytorch(epochs):
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
+        all_labels = []
+        all_predictions = []
+
         for images, labels in train_loader:
-            #images = images.permute(0, 3, 1, 2)  # Reorder the dimensions
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images.float())
-            debug_print(f"Output shape: {outputs.shape}, Label shape: {labels.shape}")
+
+            _, predicted = torch.max(outputs.data, 1)
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
 
-        debug_print(f"Epoch {epoch+1}, Loss: {running_loss / len(train_loader)}")
+        epoch_loss = running_loss / len(train_loader)
+        epoch_accuracy = accuracy_score(all_labels, all_predictions)
+        epoch_precision = precision_score(all_labels, all_predictions, average='binary')
+        epoch_recall = recall_score(all_labels, all_predictions, average='binary')
+        epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
+
+        debug_print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
     torch.save(model.state_dict(), f"{output_folder}/flux_model.pth")
     debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
