@@ -4,13 +4,12 @@ import numpy as np
 import cv2
 import tkinter as tk
 from tkinter import messagebox
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, MaxPooling2D
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.optimizers import Adam
-from sklearn.model_selection import train_test_split
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
 import threading
+from torchvision import transforms
 
 # Debugging function to print message with variable state
 def debug_print(message, variable=None):
@@ -20,7 +19,6 @@ def debug_print(message, variable=None):
         print(f"DEBUG: {message}")
 
 # Paths to image folders and model
-# Linux style paths, ensure these directories are correct on your Jetson Nano
 with_flux_folder = "/path/to/With_Flux"
 without_flux_folder = "/path/to/Without_Flux"
 output_folder = "/path/to/Flux_Models"
@@ -28,85 +26,102 @@ output_folder = "/path/to/Flux_Models"
 # Size to which images will be resized
 img_size = (128, 128)
 
-# Debugging: print paths
-debug_print("With flux folder", with_flux_folder)
-debug_print("Without flux folder", without_flux_folder)
-debug_print("Output folder", output_folder)
+# Define your neural network class
+class FluxNet(nn.Module):
+    def __init__(self):
+        super(FluxNet, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.fc1 = nn.Linear(64 * 32 * 32, 128)
+        self.fc2 = nn.Linear(128, 2)
+        self.relu = nn.ReLU()
 
-# Function to preprocess and load images
-def preprocess_and_load_images(directory_path, img_size):
-    debug_print(f"preprocess_and_load_images called for directory {directory_path}")
-    image_files = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    dataset = np.zeros((len(image_files), img_size[0], img_size[1]), dtype=np.float32)
-    for idx, image_file in enumerate(image_files):
-        try:
-            img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                img = cv2.resize(img, img_size)
-                img = img / 255.0
-                dataset[idx] = img
-                debug_print(f"Processing image {image_file}")
-            else:
-                print(f"Warning: Image {image_file} could not be loaded and will be skipped.")
-        except Exception as e:
-            print(f"Error processing image {image_file}: {e}")
-    debug_print(f"Loaded images count", len(dataset))
-    return dataset
+    def forward(self, x):
+        x = self.pool(self.relu(self.conv1(x)))
+        x = self.pool(self.relu(self.conv2(x)))
+        x = x.view(-1, 64 * 32 * 32)
+        x = self.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
-# Function to create the machine learning model
-def create_model(input_shape=(128, 128, 1), num_classes=2):
-    model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=input_shape))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dense(num_classes, activation='softmax'))
-    model.compile(optimizer=Adam(learning_rate=0.00001), loss='categorical_crossentropy', metrics=['accuracy'])
-    debug_print("Model created with input shape and num_classes", (input_shape, num_classes))
-    return model
+# Data handling in PyTorch
+class FluxDataset(Dataset):
+    def __init__(self, directory, transform=None):
+        self.directory = directory
+        self.transform = transform
+        self.images = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
-# Function to train the model in a separate thread
-def train_model(epochs):
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_name = self.images[idx]
+        image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
+        image = cv2.resize(image, img_size)
+        image = np.expand_dims(image, axis=0)
+        image = image / 255.0
+        if self.transform:
+            image = self.transform(image)
+        label = 1 if self.directory == with_flux_folder else 0
+        return image, label
+
+# Global variable to store the device choice
+use_gpu = tk.BooleanVar(value=False)
+
+# Function to get the selected device
+def get_device():
+    return torch.device("cuda" if use_gpu.get() and torch.cuda.is_available() else "cpu")
+
+# Training function adapted for PyTorch with model loading
+def train_model_pytorch(epochs):
     debug_print("Training model with epochs", epochs)
-    try:
-        train_data = preprocess_and_load_images(with_flux_folder, img_size)
-        train_labels = np.ones(train_data.shape[0])
-        test_data = preprocess_and_load_images(without_flux_folder, img_size)
-        test_labels = np.zeros(test_data.shape[0])
-        data = np.vstack([train_data, test_data])
-        labels = np.hstack([train_labels, test_labels])
-        x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)
-        x_train = np.expand_dims(x_train, axis=-1)
-        x_test = np.expand_dims(x_test, axis=-1)
-        y_train = to_categorical(y_train)
-        y_test = to_categorical(y_test)
 
-        model_file_path = f"{output_folder}/flux_model.h5"
-        if os.path.exists(model_file_path):
-            model = load_model(model_file_path)
-            debug_print("Loaded existing model", model_file_path)
-        else:
-            model = create_model(input_shape=(128, 128, 1), num_classes=2)
-            debug_print("Created new model")
+    model_file_path = f"{output_folder}/flux_model.pth"
+    device = get_device()
+    
+    # Check if a saved model exists and load it; otherwise, create a new model
+    model = FluxNet().to(device)
+    if os.path.exists(model_file_path):
+        model.load_state_dict(torch.load(model_file_path, map_location=device))
+        debug_print("Loaded existing model", model_file_path)
+    else:
+        debug_print("No existing model found, creating a new model")
 
-        callbacks_list = [EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)]
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
-        model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=epochs, batch_size=64, callbacks=callbacks_list, verbose=1)
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_dataset = FluxDataset(with_flux_folder, transform=transform)
+    test_dataset = FluxDataset(without_flux_folder, transform=transform)
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-        model.save(f"{output_folder}/flux_model.h5")
-        debug_print("Training complete, model saved at", f"{output_folder}/flux_model.h5")
-        messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
-    except Exception as e:
-        messagebox.showerror("Training Error", f"An error occurred during training: {e}")
-        debug_print("Exception occurred during training", e)
+    for epoch in range(epochs):
+        model.train()
+        running_loss = 0.0
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+            optimizer.zero_grad()
+
+            outputs = model(images.float())
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+        debug_print(f"Epoch {epoch+1}, Loss: {running_loss / len(train_loader)}")
+
+    torch.save(model.state_dict(), model_file_path)
+    debug_print("Training complete, model saved at", model_file_path)
+    messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
 # Function to start training in a separate thread
 def start_training():
     epochs = int(epochs_entry.get())
     debug_print("start_training called, starting thread")
-    threading.Thread(target=train_model, args=(epochs,)).start()
+    threading.Thread(target=train_model_pytorch, args=(epochs,)).start()
 
 # Initialize Tkinter window
 window = tk.Tk()
@@ -116,6 +131,10 @@ window.title("Flux Stain Detector")
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
+
+# Toggle switch for GPU/CPU
+gpu_checkbox = tk.Checkbutton(window, text="Use GPU if available", variable=use_gpu)
+gpu_checkbox.pack()
 
 train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
