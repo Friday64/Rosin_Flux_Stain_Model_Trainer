@@ -19,12 +19,12 @@ def debug_print(message, variable=None):
         print(f"DEBUG: {message}")
 
 # Paths to image folders and model
-with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data\With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
+with_flux_folder = "/path/to/With_Flux"
+without_flux_folder = "/path/to/Without_Flux"
+output_folder = "/path/to/Flux_Models"
 
 # Size to which images will be resized
-img_size = (256, 256)
+img_size = (128, 128)
 
 # Define your neural network class
 class FluxNet(nn.Module):
@@ -66,28 +66,12 @@ class FluxDataset(Dataset):
         label = 1 if self.directory == with_flux_folder else 0
         return image, label
 
-# Global variable to store the device choice
-use_gpu = tk.BooleanVar(value=False)
-
-# Function to get the selected device
-def get_device():
-    return torch.device("cuda" if use_gpu.get() and torch.cuda.is_available() else "cpu")
-
-# Training function adapted for PyTorch with model loading
+# Training function adapted for PyTorch with CPU usage
 def train_model_pytorch(epochs):
     debug_print("Training model with epochs", epochs)
 
-    model_file_path = f"{output_folder}/flux_model.pth"
-    device = get_device()
-    
-    # Check if a saved model exists and load it; otherwise, create a new model
+    device = torch.device("cpu")
     model = FluxNet().to(device)
-    if os.path.exists(model_file_path):
-        model.load_state_dict(torch.load(model_file_path, map_location=device))
-        debug_print("Loaded existing model", model_file_path)
-    else:
-        debug_print("No existing model found, creating a new model")
-
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
@@ -113,8 +97,8 @@ def train_model_pytorch(epochs):
 
         debug_print(f"Epoch {epoch+1}, Loss: {running_loss / len(train_loader)}")
 
-    torch.save(model.state_dict(), model_file_path)
-    debug_print("Training complete, model saved at", model_file_path)
+    torch.save(model.state_dict(), f"{output_folder}/flux_model.pth")
+    debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
 # Function to start training in a separate thread
@@ -127,17 +111,10 @@ def start_training():
 window = tk.Tk()
 window.title("Flux Stain Detector")
 
-#create Tkinter variables
-use_gpu = tk.BooleanVar(value=False)
-
 # UI elements
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
-
-# Toggle switch for GPU/CPU
-gpu_checkbox = tk.Checkbutton(window, text="Use GPU if available", variable=use_gpu)
-gpu_checkbox.pack()
 
 train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
