@@ -19,8 +19,8 @@ def debug_print(message, variable=None):
         print(f"DEBUG: {message}")
 
 # Paths to image folders and model
-with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Stain_Trainer_AI/with_flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Stain_Trainer_AI/without_flux"
+with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/with_flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/without_flux"
 output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
 # Size to which images will be resized
@@ -55,14 +55,14 @@ class FluxDataset(Dataset):
     def __len__(self):
         return len(self.images)
 
+   
     def __getitem__(self, idx):
         img_name = self.images[idx]
         image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
         image = cv2.resize(image, img_size)
-        image = np.expand_dims(image, axis=0)
-        image = image / 255.0
-        if self.transform:
-            image = self.transform(image)
+        image = image / 255.0  # Normalize the image
+        image = np.expand_dims(image, axis=0)  # Add channel dimension
+        image = torch.from_numpy(image).float()  # Convert to PyTorch tensor
         label = 1 if self.directory == with_flux_folder else 0
         return image, label
 
@@ -85,14 +85,14 @@ def train_model_pytorch(epochs):
         model.train()
         running_loss = 0.0
         for images, labels in train_loader:
+            #images = images.permute(0, 3, 1, 2)  # Reorder the dimensions
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
-
             outputs = model(images.float())
+            debug_print(f"Output shape: {outputs.shape}, Label shape: {labels.shape}")
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-
             running_loss += loss.item()
 
         debug_print(f"Epoch {epoch+1}, Loss: {running_loss / len(train_loader)}")
