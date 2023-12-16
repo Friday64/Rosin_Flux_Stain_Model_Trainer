@@ -40,7 +40,7 @@ class FluxNet(nn.Module):
     def forward(self, x):
         x = self.pool(self.relu(self.conv1(x)))
         x = self.pool(self.relu(self.conv2(x)))
-        x = x.view(-1, 64 * 32 * 32)
+        x = x.view(x.size(0), -1)  # Dynamically calculate the correct size
         x = self.relu(self.fc1(x))
         x = self.fc2(x)
         return x
