@@ -127,7 +127,7 @@ def start_training():
 window = tk.Tk()
 window.title("Flux Stain Detector")
 
-#Tkinter BooleanVar (or other variables)
+#create Tkinter variables
 use_gpu = tk.BooleanVar(value=False)
 
 # UI elements
