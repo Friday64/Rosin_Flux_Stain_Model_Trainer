@@ -19,9 +19,9 @@ def debug_print(message, variable=None):
         print(f"DEBUG: {message}")
 
 # Paths to image folders and model
-with_flux_folder = "/path/to/With_Flux"
-without_flux_folder = "/path/to/Without_Flux"
-output_folder = "/path/to/Flux_Models"
+with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data\With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 
 # Size to which images will be resized
 img_size = (256, 256)
@@ -126,6 +126,9 @@ def start_training():
 # Initialize Tkinter window
 window = tk.Tk()
 window.title("Flux Stain Detector")
+
+#Tkinter BooleanVar (or other variables)
+use_gpu = tk.BooleanVar(value=False)
 
 # UI elements
 tk.Label(window, text="Number of Epochs:").pack()
