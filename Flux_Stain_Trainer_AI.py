@@ -24,7 +24,7 @@ without_flux_folder = "/path/to/Without_Flux"
 output_folder = "/path/to/Flux_Models"
 
 # Size to which images will be resized
-img_size = (128, 128)
+img_size = (256, 256)
 
 # Define your neural network class
 class FluxNet(nn.Module):
