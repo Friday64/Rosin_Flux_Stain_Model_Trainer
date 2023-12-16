@@ -21,9 +21,9 @@ def debug_print(message, variable=None):
         print(f"DEBUG: {message}")
 
 # Paths to image folders and model
-with_flux_folder = "path/to/With_Flux"
-without_flux_folder = "path/to/Without_Flux"
-output_folder = "path/to/Flux_Models"
+with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
+without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
 # Load data paths and labels
 all_data = []
