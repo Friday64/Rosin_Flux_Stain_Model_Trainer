@@ -1,4 +1,5 @@
 # Standard library imports
+import multiprocessing
 import os
 import numpy as np
 import cv2
@@ -29,7 +30,6 @@ output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_M
 all_data = []
 all_labels = []
 
-
 # Load images with flux (label 1)
 for filename in os.listdir(with_flux_folder):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
@@ -43,8 +43,8 @@ for filename in os.listdir(without_flux_folder):
         all_labels.append(0)  # Label 0 for without flux
 
 # Splitting the data into training and validation sets
-from sklearn.model_selection import train_test_split
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
+
 # Size to which images will be resized
 img_size = (256, 256)
 
@@ -89,16 +89,15 @@ class FluxDataset(Dataset):
         image = torch.from_numpy(image).float()
         return image, label
 
-
 # Create datasets and dataloaders
 train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
+val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 # Training function
 def train_model_pytorch(epochs):
-    device = torch.device("cpu")
+    # Use GPU if available, else use CPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = FluxNet().to(device)
     criterion = nn.CrossEntropyLoss()  # Adjust for class weights if necessary
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
@@ -106,7 +105,7 @@ def train_model_pytorch(epochs):
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
-        all_labels = []
+        all_labels = []             
         all_predictions = []
 
         for images, labels in train_loader:
@@ -132,11 +131,10 @@ def train_model_pytorch(epochs):
     debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-# Training start function
 def start_training():
     epochs = int(epochs_entry.get())
-    debug_print("start_training called, starting thread")
-    threading.Thread(target=train_model_pytorch, args=(epochs,)).start()
+    training_process = multiprocessing.Process(target=train_model_pytorch, args=(epochs,))
+    training_process.start()
 
 # Tkinter UI setup
 window = tk.Tk()
