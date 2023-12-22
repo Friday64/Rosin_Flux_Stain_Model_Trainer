@@ -1,5 +1,3 @@
-# Standard library imports
-import multiprocessing
 import os
 import numpy as np
 import cv2
@@ -9,19 +7,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-import threading
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-# Debugging function
-def debug_print(message, variable=None):
-    if variable is not None:
-        print(f"DEBUG: {message}: {variable}")
-    else:
-        print(f"DEBUG: {message}")
-
-# Paths to image folders and model
+# Define your dataset paths and output folder
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
@@ -126,30 +116,19 @@ def train_model_pytorch(epochs):
         epoch_precision = precision_score(all_labels, all_predictions, average='binary')
         epoch_recall = recall_score(all_labels, all_predictions, average='binary')
         epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
-        debug_print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
+        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
     torch.save(model.state_dict(), f"{output_folder}/flux_model.pth")
-    debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
+    print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-# Corrected start_training function
+# Tkinter UI setup
 def start_training():
-    train_button.config(state=tk.DISABLED)  # Disable the button during training
     epochs = int(epochs_entry.get())
     train_model_pytorch(epochs)
-    train_button.config(state=tk.NORMAL)  # Re-enable the button after training
 
-# Tkinter UI setup
 window = tk.Tk()
 window.title("Flux Stain Detector")
-
-# Function to handle window closing
-def on_closing():
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        window.destroy()
-
-# Bind the function to the window's close event
-window.protocol("WM_DELETE_WINDOW", on_closing)
 
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
@@ -157,5 +136,4 @@ epochs_entry.pack()
 train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
 
-# Running the Tkinter main loop
 window.mainloop()
