@@ -95,8 +95,18 @@ val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 
-## Training function
+# Flag to prevent multiple training starts
+training_started = False
+
+# Training function
 def train_model_pytorch(epochs):
+    global training_started  # Use the global flag
+
+    if training_started:
+        return
+
+    training_started = True
+
     # Use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = FluxNet().to(device)
@@ -131,11 +141,14 @@ def train_model_pytorch(epochs):
     torch.save(model.state_dict(), f"{output_folder}/flux_model.pth")
     debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
+    training_started = False  # Reset the flag when training is done
 
 # Corrected start_training function
 def start_training():
-    epochs = int(epochs_entry.get())
-    train_model_pytorch(epochs)  # Call the training function directly
+    global training_started  # Use the global flag
+    if not training_started:
+        epochs = int(epochs_entry.get())
+        threading.Thread(target=train_model_pytorch, args=(epochs,)).start()  # Use threading.Thread to start training
 
 # Tkinter UI setup
 window = tk.Tk()
