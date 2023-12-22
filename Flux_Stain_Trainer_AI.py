@@ -94,6 +94,7 @@ train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTen
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
+
 # Training function
 def train_model_pytorch(epochs):
     # Use GPU if available, else use CPU
@@ -139,9 +140,20 @@ def start_training():
 # Tkinter UI setup
 window = tk.Tk()
 window.title("Flux Stain Detector")
+
+# Function to handle window closing
+def on_closing():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        window.destroy()
+
+# Bind the function to the window's close event
+window.protocol("WM_DELETE_WINDOW", on_closing)
+
 tk.Label(window, text="Number of Epochs:").pack()
 epochs_entry = tk.Entry(window)
 epochs_entry.pack()
 train_button = tk.Button(window, text="Train Model", command=start_training)
 train_button.pack()
+
+# Running the Tkinter main loop
 window.mainloop()
