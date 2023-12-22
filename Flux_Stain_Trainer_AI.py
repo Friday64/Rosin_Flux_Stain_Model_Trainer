@@ -134,8 +134,10 @@ def train_model_pytorch(epochs):
 
 # Corrected start_training function
 def start_training():
+    train_button.config(state=tk.DISABLED)  # Disable the button during training
     epochs = int(epochs_entry.get())
     train_model_pytorch(epochs)
+    train_button.config(state=tk.NORMAL)  # Re-enable the button after training
 
 # Tkinter UI setup
 window = tk.Tk()
