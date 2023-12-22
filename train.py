@@ -1,8 +1,7 @@
 import os
+from tkinter import messagebox
 import numpy as np
 import cv2
-import tkinter as tk
-from tkinter import messagebox
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -122,18 +121,8 @@ def train_model_pytorch(epochs):
     print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-# Tkinter UI setup
-def start_training():
-    epochs = int(epochs_entry.get())
+if __name__ == "__main__":
+    # Parse command line arguments for epochs or other settings
+    # Example: You can use argparse to pass command-line arguments here
+    epochs = 10  # Default value
     train_model_pytorch(epochs)
-
-window = tk.Tk()
-window.title("Flux Stain Detector")
-
-tk.Label(window, text="Number of Epochs:").pack()
-epochs_entry = tk.Entry(window)
-epochs_entry.pack()
-train_button = tk.Button(window, text="Train Model", command=start_training)
-train_button.pack()
-
-window.mainloop()
