@@ -95,7 +95,7 @@ val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 
-# Training function
+## Training function
 def train_model_pytorch(epochs):
     # Use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -135,8 +135,7 @@ def train_model_pytorch(epochs):
 # Corrected start_training function
 def start_training():
     epochs = int(epochs_entry.get())
-    training_process = multiprocessing.Process(target=train_model_pytorch, args=(epochs,))
-    training_process.start()
+    train_model_pytorch(epochs)  # Call the training function directly
 
 # Tkinter UI setup
 window = tk.Tk()
