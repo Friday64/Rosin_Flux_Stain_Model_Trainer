@@ -132,6 +132,7 @@ def train_model_pytorch(epochs):
     debug_print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
+# Corrected start_training function
 def start_training():
     epochs = int(epochs_entry.get())
     training_process = multiprocessing.Process(target=train_model_pytorch, args=(epochs,))
