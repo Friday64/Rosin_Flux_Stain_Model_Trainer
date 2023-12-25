@@ -12,23 +12,27 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import tkinter as tk
 from tkinter import messagebox
 import threading  # For running training in a separate thread
+import logging
 
-# Define paths for the dataset and where the model will be saved
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Define your dataset paths and output folder
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 
-# Load data paths and labels for both categories: with and without flux
+# Load data paths and labels
 all_data = []
 all_labels = []
 
-# Load images with flux and label them as 1
+# Load images with flux (label 1)
 for filename in os.listdir(with_flux_folder):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
         all_data.append(os.path.join(with_flux_folder, filename))
         all_labels.append(1)
 
-# Load images without flux and label them as 0
+# Load images without flux (label 0)
 for filename in os.listdir(without_flux_folder):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
         all_data.append(os.path.join(without_flux_folder, filename))
@@ -37,14 +41,13 @@ for filename in os.listdir(without_flux_folder):
 # Split the data into training and validation sets
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
 
-# Define the size to which images will be resized
+# Size to which images will be resized
 img_size = (256, 256)
 
-# Neural network class definition for flux detection
+# Neural network class
 class FluxNet(nn.Module):
     def __init__(self):
         super(FluxNet, self).__init__()
-        # Define the layers and structure of the neural network
         self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
@@ -54,7 +57,6 @@ class FluxNet(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        # Define the forward pass through the network
         x = self.pool(self.relu(self.conv1(x)))
         x = self.pool(self.relu(self.conv2(x)))
         x = self.dropout(x)
@@ -63,7 +65,7 @@ class FluxNet(nn.Module):
         x = self.fc2(x)
         return x
 
-# Custom Dataset class for loading and transforming images
+# Dataset class
 class FluxDataset(Dataset):
     def __init__(self, data, labels, transform=None):
         self.data = data
@@ -83,13 +85,13 @@ class FluxDataset(Dataset):
         image = torch.from_numpy(image).float()
         return image, label
 
-# Creating datasets and dataloaders for training and validation
+# Create datasets and dataloaders
 train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 
-# Specify the path to save or load the model
+# Path to save or load the model
 model_path = f"{output_folder}/flux_model.pth"
 
 # Function to check for the model and train if not present
@@ -99,10 +101,10 @@ def check_and_train_model(model_path, train_loader, epochs):
 
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path))
-        print("Model loaded successfully.")
+        logging.info("Model loaded successfully.")
     else:
-        print("No pre-trained model found. Training a new model...")
-        model = train_model_pytorch(train_loader, model, epochs, device)
+        logging.info("No pre-trained model found. Training a new model...")
+        model = train_model_pytorch(train_loader, model, epochs, device)  # Training the model
         
     return model
 
@@ -134,38 +136,28 @@ def train_model_pytorch(train_loader, model, epochs, device):
         epoch_precision = precision_score(all_labels, all_predictions, average='binary')
         epoch_recall = recall_score(all_labels, all_predictions, average='binary')
         epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
-        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
+        logging.info(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
     torch.save(model.state_dict(), model_path)
-    print("Training complete, model saved at", model_path)
+    logging.info("Training complete, model saved at", model_path)
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-# Function to handle threading for the training process
-def thread_training(epochs):
-    try:
-        epochs = int(epochs)
-    except ValueError:
-        messagebox.showerror("Error", "Please enter a valid integer for epochs.")
-        return
+    return model
 
-    check_and_train_model(model_path, train_loader, epochs)
-    messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
+if __name__ == "__main__":
+    # Tkinter UI setup
+    def start_training():
+        epochs = epochs_entry.get()
+        training_thread = threading.Thread(target=thread_training, args=(epochs,))
+        training_thread.start()
 
-# Function to start training (now using threading to avoid freezing the GUI)
-def start_training():
-    epochs = epochs_entry.get()
-    training_thread = threading.Thread(target=thread_training, args=(epochs,))
-    training_thread.start()
+    window = tk.Tk()
+    window.title("Flux Stain Detector")
 
-# Tkinter GUI setup
-window = tk.Tk()
-window.title("Flux Stain Detector")
+    tk.Label(window, text="Number of Epochs:").pack()
+    epochs_entry = tk.Entry(window)
+    epochs_entry.pack()
+    train_button = tk.Button(window, text="Train Model", command=start_training)
+    train_button.pack()
 
-tk.Label(window, text="Number of Epochs:").pack()
-epochs_entry = tk.Entry(window)
-epochs_entry.pack()
-
-train_button = tk.Button(window, text="Train Model", command=start_training)
-train_button.pack()
-
-window.mainloop()  # Start the Tkinter event loop
+    window.mainloop()  # Start the Tkinter event loop
