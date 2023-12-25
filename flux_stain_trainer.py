@@ -117,7 +117,7 @@ def thread_training(epochs):
     except Exception as e:
         logging.error("An error occurred during training:", str(e))
 
-# Modify your training function to be used within check_and_train_model
+# Function to train the model
 def train_model_pytorch(train_loader, model, epochs, device):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
@@ -145,11 +145,15 @@ def train_model_pytorch(train_loader, model, epochs, device):
         epoch_precision = precision_score(all_labels, all_predictions, average='binary')
         epoch_recall = recall_score(all_labels, all_predictions, average='binary')
         epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
-        logging.info(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
+        
+        # Debug prints for training metrics
+        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
     torch.save(model.state_dict(), model_path)
-    logging.info("Training complete, model saved at", model_path)
+    print("Training complete, model saved at", model_path)
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
+
+    return model
 
 if __name__ == "__main__":
     # Tkinter UI setup
