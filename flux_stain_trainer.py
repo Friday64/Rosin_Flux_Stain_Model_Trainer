@@ -155,6 +155,7 @@ if __name__ == "__main__":
     # Tkinter UI setup
     def start_training():
         epochs = epochs_entry.get()
+        logging.info(f"Requested training with {epochs} epochs.")
         training_thread = threading.Thread(target=thread_training, args=(epochs,))
         training_thread.start()
 
