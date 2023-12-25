@@ -1,7 +1,6 @@
 import os
-from tkinter import messagebox
-import numpy as np
 import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,6 +8,9 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from tkinter import messagebox
+from flux_stain_trainer_ai_main import epochs
+
 
 # Define your dataset paths and output folder
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
@@ -23,13 +25,13 @@ all_labels = []
 for filename in os.listdir(with_flux_folder):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
         all_data.append(os.path.join(with_flux_folder, filename))
-        all_labels.append(1)  # Label 1 for with flux
+        all_labels.append(1)
 
 # Load images without flux (label 0)
 for filename in os.listdir(without_flux_folder):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
         all_data.append(os.path.join(without_flux_folder, filename))
-        all_labels.append(0)  # Label 0 for without flux
+        all_labels.append(0)
 
 # Splitting the data into training and validation sets
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
@@ -45,7 +47,7 @@ class FluxNet(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
         self.dropout = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64 * 64 * 64, 128)  # Adjusted size
+        self.fc1 = nn.Linear(64 * 64 * 64, 128)
         self.fc2 = nn.Linear(128, 2)
         self.relu = nn.ReLU()
 
@@ -84,18 +86,32 @@ val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 
-# Training function
-def train_model_pytorch(epochs):
-    # Use GPU if available, else use CPU
+# Path to save or load the model
+model_path = f"{output_folder}/flux_model.pth"
+
+# Function to check for the model and train if not present
+def check_and_train_model(model_path, train_loader, epochs):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = FluxNet().to(device)
-    criterion = nn.CrossEntropyLoss()  # Adjust for class weights if necessary
+
+    if os.path.exists(model_path):
+        model.load_state_dict(torch.load(model_path))
+        print("Model loaded successfully.")
+    else:
+        print("No pre-trained model found. Training a new model...")
+        model = train_model_pytorch(train_loader, model, epochs, device)  # Training the model
+        
+    return model
+
+# Modify your training function to be used within check_and_train_model
+def train_model_pytorch(train_loader, model, epochs, device):
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
-        all_labels = []             
+        all_labels = []
         all_predictions = []
 
         for images, labels in train_loader:
@@ -117,12 +133,14 @@ def train_model_pytorch(epochs):
         epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
         print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
-    torch.save(model.state_dict(), f"{output_folder}/flux_model.pth")
-    print("Training complete, model saved at", f"{output_folder}/flux_model.pth")
+    torch.save(model.state_dict(), model_path)
+    print("Training complete, model saved at", model_path)
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
+    return model
+
 if __name__ == "__main__":
-    # Parse command line arguments for epochs or other settings
-    # Example: You can use argparse to pass command-line arguments here
-    epochs = 10  # Default value
-    train_model_pytorch(epochs)
+    # Use the check_and_train_model function
+    model = check_and_train_model(model_path, train_loader, epochs)
+
+  
