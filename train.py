@@ -143,12 +143,12 @@ def train_model_pytorch(train_loader, model, epochs, device):
 if __name__ == "__main__":
     # Parse command-line arguments for epochs
     parser = argparse.ArgumentParser(description='Train Flux Detector Model')
-    parser.add_argument('epochs', type=int, help='Number of epochs for training')
+    parser.add_argument('epochs', type=int, nargs='?', default=10, help='Number of epochs for training')  # Updated to handle optional epochs
     args = parser.parse_args()
 
-    # Use the epochs from the command line
+    # Use the epochs from the command line or default if not provided
     epochs = args.epochs
 
     # Rest of your main code
     model = check_and_train_model(model_path, train_loader, epochs)
-    # ...[rest of your code]..
+    # ...[rest of your code]...
