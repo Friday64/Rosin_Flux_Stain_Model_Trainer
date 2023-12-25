@@ -1,4 +1,3 @@
-import argparse
 import os
 import cv2
 import numpy as np
@@ -10,8 +9,6 @@ from torchvision import transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from tkinter import messagebox
-from flux_stain_trainer_ai_main import epochs
-
 
 # Define your dataset paths and output folder
 with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
@@ -138,9 +135,10 @@ def train_model_pytorch(train_loader, model, epochs, device):
     print("Training complete, model saved at", model_path)
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-    return model
-
+# Command-line argument handling
 if __name__ == "__main__":
+    import argparse  # Importing argparse for command-line option
+
     # Parse command-line arguments for epochs
     parser = argparse.ArgumentParser(description='Train Flux Detector Model')
     parser.add_argument('epochs', type=int, nargs='?', default=10, help='Number of epochs for training')  # Updated to handle optional epochs
@@ -149,6 +147,5 @@ if __name__ == "__main__":
     # Use the epochs from the command line or default if not provided
     epochs = args.epochs
 
-    # Rest of your main code
+    # Start the training process with the specified or default number of epochs
     model = check_and_train_model(model_path, train_loader, epochs)
-    # ...[rest of your code]...
