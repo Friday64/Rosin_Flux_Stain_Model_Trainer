@@ -117,41 +117,46 @@ def thread_training(epochs):
     except Exception as e:
         logging.error("An error occurred during training:", str(e))
 
-# Modify your training function to be used within check_and_train_model
+# Define a function for training
 def train_model_pytorch(train_loader, model, epochs, device):
+    print("Training function called.")  # Debug print to check if the function is being called
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
-    for epoch in range(epochs):
-        model.train()
-        running_loss = 0.0
-        all_labels = []
-        all_predictions = []
+    try:
+        for epoch in range(epochs):
+            model.train()
+            running_loss = 0.0
+            all_labels = []
+            all_predictions = []
 
-        for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
-            outputs = model(images.float())
-            _, predicted = torch.max(outputs.data, 1)
-            all_labels.extend(labels.cpu().numpy())
-            all_predictions.extend(predicted.cpu().numpy())
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
+            for images, labels in train_loader:
+                images, labels = images.to(device), labels.to(device)
+                optimizer.zero_grad()
+                outputs = model(images.float())
+                _, predicted = torch.max(outputs.data, 1)
+                all_labels.extend(labels.cpu().numpy())
+                all_predictions.extend(predicted.cpu().numpy())
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                running_loss += loss.item()
 
-        epoch_loss = running_loss / len(train_loader)
-        epoch_accuracy = accuracy_score(all_labels, all_predictions)
-        epoch_precision = precision_score(all_labels, all_predictions, average='binary')
-        epoch_recall = recall_score(all_labels, all_predictions, average='binary')
-        epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
-        
-        # Debug prints for training metrics
-        print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
+            epoch_loss = running_loss / len(train_loader)
+            epoch_accuracy = accuracy_score(all_labels, all_predictions)
+            epoch_precision = precision_score(all_labels, all_predictions, average='binary')
+            epoch_recall = recall_score(all_labels, all_predictions, average='binary')
+            epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
+            
+            # Debug prints for training metrics
+            print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
 
-    torch.save(model.state_dict(), model_path)
-    print("Training complete, model saved at", model_path)
-    messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
+        torch.save(model.state_dict(), model_path)
+        print("Training complete, model saved at", model_path)
+        messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
+
+    except Exception as e:
+        print("Error during training:", str(e))
 
     return model
 
