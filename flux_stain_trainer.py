@@ -117,7 +117,7 @@ def thread_training(epochs):
     except Exception as e:
         logging.error("An error occurred during training:", str(e))
 
-# Function to train the model
+# Modify your training function to be used within check_and_train_model
 def train_model_pytorch(train_loader, model, epochs, device):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
@@ -154,6 +154,7 @@ def train_model_pytorch(train_loader, model, epochs, device):
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
     return model
+
 
 if __name__ == "__main__":
     # Tkinter UI setup
