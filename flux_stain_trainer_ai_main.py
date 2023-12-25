@@ -4,7 +4,8 @@ import subprocess
 
 # Tkinter UI setup
 def start_training():
-    subprocess.Popen(["python", "train.py"])
+    epochs = epochs_entry.get()  # Get the number of epochs from the entry
+    subprocess.Popen(["python", "train.py", epochs])  # Pass epochs as an argument
     messagebox.showinfo("Training Started", "Training process has started.")
 
 window = tk.Tk()
