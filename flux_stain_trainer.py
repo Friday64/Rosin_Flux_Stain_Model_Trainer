@@ -108,6 +108,15 @@ def check_and_train_model(model_path, train_loader, epochs):
         
     return model
 
+# Define a function for training in a separate thread
+def thread_training(epochs):
+    try:
+        logging.info("Training started in a separate thread...")
+        model = check_and_train_model(model_path, train_loader, int(epochs))
+        logging.info("Training completed in the separate thread.")
+    except Exception as e:
+        logging.error("An error occurred during training:", str(e))
+
 # Modify your training function to be used within check_and_train_model
 def train_model_pytorch(train_loader, model, epochs, device):
     criterion = nn.CrossEntropyLoss()
@@ -141,8 +150,6 @@ def train_model_pytorch(train_loader, model, epochs, device):
     torch.save(model.state_dict(), model_path)
     logging.info("Training complete, model saved at", model_path)
     messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
-
-    return model
 
 if __name__ == "__main__":
     # Tkinter UI setup
