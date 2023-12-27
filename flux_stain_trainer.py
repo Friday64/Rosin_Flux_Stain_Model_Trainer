@@ -91,16 +91,19 @@ val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
 
+# Determine the device and move model to device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 # Path to save or load the model
 model_path = f"{output_folder}/flux_model.pth"
 
 # Function to check for the model and train if not present
 def check_and_train_model(model_path, train_loader, epochs):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = FluxNet().to(device)
 
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
         logging.info("Model loaded successfully.")
     else:
         logging.info("No pre-trained model found. Training a new model...")
