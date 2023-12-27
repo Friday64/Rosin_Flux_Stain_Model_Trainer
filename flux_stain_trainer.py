@@ -1,4 +1,3 @@
-# Import necessary libraries
 import os
 import cv2
 import numpy as np
@@ -151,8 +150,8 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
             epoch_recall = recall_score(all_labels, all_predictions, average='binary')
             epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
             
-            # Debug prints for training metrics
-            print(f"Epoch {epoch+1}, Loss: {epoch_loss}, Accuracy: {epoch_accuracy}, Precision: {epoch_precision}, Recall: {epoch_recall}, F1 Score: {epoch_f1}")
+            # Print training metrics for each epoch
+            print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, Precision: {epoch_precision:.4f}, Recall: {epoch_recall:.4f}, F1 Score: {epoch_f1:.4f}")
 
         torch.save(model.state_dict(), model_path)
         print("Training complete, model saved at", model_path)
