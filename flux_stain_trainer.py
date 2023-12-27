@@ -11,38 +11,38 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
-import threading  # For running training in a separate thread
+import threading
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Define your dataset paths and output folder
-with_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-without_flux_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-output_folder = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
+# Constants for paths and hyperparameters
+WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
+IMG_SIZE = (256, 256)
+LEARNING_RATE = 0.00001
+BATCH_SIZE = 64
 
 # Load data paths and labels
 all_data = []
 all_labels = []
 
 # Load images with flux (label 1)
-for filename in os.listdir(with_flux_folder):
+for filename in os.listdir(WITH_FLUX_FOLDER):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
-        all_data.append(os.path.join(with_flux_folder, filename))
+        all_data.append(os.path.join(WITH_FLUX_FOLDER, filename))
         all_labels.append(1)
 
 # Load images without flux (label 0)
-for filename in os.listdir(without_flux_folder):
+for filename in os.listdir(WITHOUT_FLUX_FOLDER):
     if filename.endswith(('.png', '.jpg', '.jpeg')):
-        all_data.append(os.path.join(without_flux_folder, filename))
+        all_data.append(os.path.join(WITHOUT_FLUX_FOLDER, filename))
         all_labels.append(0)
 
 # Split the data into training and validation sets
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
-
-# Size to which images will be resized
-img_size = (256, 256)
 
 # Neural network class
 class FluxNet(nn.Module):
@@ -79,7 +79,7 @@ class FluxDataset(Dataset):
         img_name = self.data[idx]
         label = self.labels[idx]
         image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
-        image = cv2.resize(image, img_size)
+        image = cv2.resize(image, IMG_SIZE)
         image = image / 255.0
         image = np.expand_dims(image, axis=0)
         image = torch.from_numpy(image).float()
@@ -88,15 +88,15 @@ class FluxDataset(Dataset):
 # Create datasets and dataloaders
 train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
-train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=1)
-val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=1)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=1)
 
 # Determine the device and move model to device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 # Path to save or load the model
-model_path = f"{output_folder}/flux_model.pth"
+model_path = f"{OUTPUT_FOLDER}/flux_model.pth"
 
 # Function to check for the model and train if not present
 def check_and_train_model(model_path, train_loader, epochs):
@@ -107,7 +107,7 @@ def check_and_train_model(model_path, train_loader, epochs):
         logging.info("Model loaded successfully.")
     else:
         logging.info("No pre-trained model found. Training a new model...")
-        model = train_model_pytorch(train_loader, model, epochs, device)  # Training the model
+        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
         
     return model
 
@@ -121,10 +121,10 @@ def thread_training(epochs):
         logging.error("An error occurred during training:", str(e))
 
 # Define a function for training
-def train_model_pytorch(train_loader, model, epochs, device):
-    print("Training function called.")  # Debug print to check if the function is being called
+def train_model_pytorch(train_loader, model, epochs, device, model_path):
+    print("Training function called.")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     try:
         for epoch in range(epochs):
@@ -162,7 +162,6 @@ def train_model_pytorch(train_loader, model, epochs, device):
         print("Error during training:", str(e))
 
     return model
-
 
 if __name__ == "__main__":
     # Tkinter UI setup
