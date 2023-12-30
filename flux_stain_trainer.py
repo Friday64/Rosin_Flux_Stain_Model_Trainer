@@ -49,13 +49,13 @@ train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_
 class FluxNet(nn.Module):
     def __init__(self):
         super(FluxNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
-        self.dropout = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64 * 64 * 64, 128)
-        self.fc2 = nn.Linear(128, 2)
-        self.relu = nn.ReLU()
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)#this is the number of channels that will be outputted
+        self.pool = nn.MaxPool2d(2, 2)#this is the size of the pooling for the maxpool
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # this is the number of channels that will be outputted AFT maxpool
+        self.dropout = nn.Dropout(0.5) #this is the dropout layer for regularization
+        self.fc1 = nn.Linear(64 * 64 * 64, 128) #this is the number of nodes for the fully connected
+        self.fc2 = nn.Linear(128, 2)#this is the number of nodes for the fully connected layer
+        self.relu = nn.ReLU() #this is the activation for the fully connected layer 
 
     def forward(self, x):
         x = self.pool(self.relu(self.conv1(x)))
