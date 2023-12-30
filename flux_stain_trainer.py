@@ -12,13 +12,7 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
-def initialize_app():
-    global device
-    # Determine the device and move model to device
-    device = torch.device("cpu")
-    print(f"Using device: {device}")
-
-initialize_app()
+device = torch.device("cpu")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
