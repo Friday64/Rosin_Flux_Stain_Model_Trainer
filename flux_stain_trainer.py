@@ -12,6 +12,10 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
+device = torch.device("cpu")
+print(f"Using device: {device}")
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -88,10 +92,6 @@ train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTen
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-
-# Determine the device and move model to device
-device = torch.device("cpu")
-print(f"Using device: {device}")
 
 # Path to save or load the model
 model_path = f"{OUTPUT_FOLDER}/flux_model.pth"
