@@ -10,7 +10,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
-import threading
 import logging
 
 # Configure logging
@@ -110,15 +109,6 @@ def check_and_train_model(model_path, train_loader, epochs):
         
     return model
 
-# Define a function for training in a separate thread
-def thread_training(epochs):
-    try:
-        logging.info("Training started in a separate thread...")
-        model = check_and_train_model(model_path, train_loader, int(epochs))
-        logging.info("Training completed in the separate thread.")
-    except Exception as e:
-        logging.error("An error occurred during training:", str(e))
-
 # Define a function for training
 def train_model_pytorch(train_loader, model, epochs, device, model_path):
     print("Training function called.")
@@ -167,8 +157,8 @@ if __name__ == "__main__":
     def start_training():
         epochs = epochs_entry.get()
         logging.info(f"Requested training with {epochs} epochs.")
-        training_thread = threading.Thread(target=thread_training, args=(epochs,))
-        training_thread.start()
+        # Directly call the training function without threading
+        check_and_train_model(model_path, train_loader, int(epochs))
 
     window = tk.Tk()
     window.title("Flux Stain Detector")
