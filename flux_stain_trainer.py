@@ -155,6 +155,7 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
 if __name__ == "__main__":
     # Tkinter UI setup
     def start_training():
+        train_button.config(state=tk.DISABLED)  # Disable the button while training
         epochs = epochs_entry.get()
         if not epochs.isdigit():  # Simple validation to ensure epochs is a number
             messagebox.showerror("Error", "Please enter a valid number of epochs.")
@@ -167,7 +168,8 @@ if __name__ == "__main__":
         except Exception as e:
             messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
             logging.error("Training Error:", exc_info=True)
-
+            
+        train_button.config(state=tk.NORMAL) 
     window = tk.Tk()
     window.title("Flux Stain Detector")
 
