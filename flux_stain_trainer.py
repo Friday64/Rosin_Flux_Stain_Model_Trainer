@@ -156,9 +156,17 @@ if __name__ == "__main__":
     # Tkinter UI setup
     def start_training():
         epochs = epochs_entry.get()
+        if not epochs.isdigit():  # Simple validation to ensure epochs is a number
+            messagebox.showerror("Error", "Please enter a valid number of epochs.")
+            return
+
         logging.info(f"Requested training with {epochs} epochs.")
-        # Directly call the training function without threading
-        check_and_train_model(model_path, train_loader, int(epochs))
+        try:
+            # Call the training function directly
+            check_and_train_model(model_path, train_loader, int(epochs))
+        except Exception as e:
+            messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
+            logging.error("Training Error:", exc_info=True)
 
     window = tk.Tk()
     window.title("Flux Stain Detector")
