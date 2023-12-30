@@ -17,12 +17,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
-WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
+WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"  # Update this path
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"  # Update this path
+OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"  # Update this path
 IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.00001
-BATCH_SIZE = 64
+BATCH_SIZE = 64  # Adjust as needed
 
 # Load data paths and labels
 all_data = []
@@ -87,11 +87,11 @@ class FluxDataset(Dataset):
 # Create datasets and dataloaders
 train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
 val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=1)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=1)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
 # Determine the device and move model to device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 print(f"Using device: {device}")
 
 # Path to save or load the model
