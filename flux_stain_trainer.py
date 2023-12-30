@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
+# Set up PyTorch device
 device = torch.device("cpu")
 
 # Configure logging
@@ -22,7 +23,7 @@ WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flu
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"  # Update this path
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"  # Update this path
 IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.00001
+LEARNING_RATE = 0.01
 BATCH_SIZE = 64  # Adjust as needed
 
 # Load data paths and labels
