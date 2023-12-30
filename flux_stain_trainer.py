@@ -103,6 +103,8 @@ def check_and_train_model(model_path, train_loader, epochs):
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path, map_location=device))
         logging.info("Model loaded successfully.")
+        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
+        logging.info("retraining complete")
     else:
         logging.info("No pre-trained model found. Training a new model...")
         model = train_model_pytorch(train_loader, model, epochs, device, model_path)
@@ -168,7 +170,7 @@ if __name__ == "__main__":
         except Exception as e:
             messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
             logging.error("Training Error:", exc_info=True)
-            
+
         train_button.config(state=tk.NORMAL) 
     window = tk.Tk()
     window.title("Flux Stain Detector")
