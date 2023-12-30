@@ -22,9 +22,9 @@ logging.basicConfig(level=logging.INFO)
 WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"  # Update this path
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"  # Update this path
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"  # Update this path
-IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.01
-BATCH_SIZE = 64  # Adjust as needed
+IMG_SIZE = (256, 256)# Adjust as needed for your model
+LEARNING_RATE = 0.01# Adjust as needed for convergence
+BATCH_SIZE = 32  # Adjust as needed for your model
 
 # Load data paths and labels
 all_data = []
