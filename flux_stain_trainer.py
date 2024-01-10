@@ -4,14 +4,16 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
 import logging
-from PIL import Image  # Added this import for PIL Image
+from PIL import Image
 
 # Check for CUDA and set up PyTorch device accordingly
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,9 +23,9 @@ logging.info(f"Using device: {device}")
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
-WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux" 
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux" 
-OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models" 
+WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 IMG_SIZE = (256, 256)  # Adjust as needed for your model
 LEARNING_RATE = 0.001  # Adjusted learning rate
 BATCH_SIZE = 32  # Adjust as needed for your model
@@ -76,7 +78,11 @@ class FluxDataset(Dataset):
     def __init__(self, data, labels, transform=None):
         self.data = data
         self.labels = labels
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomHorizontalFlip(),  # Example augmentation
+            # Add more transformations as needed
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -88,20 +94,14 @@ class FluxDataset(Dataset):
         image = cv2.resize(image, IMG_SIZE)
         image = image / 255.0
         image = np.expand_dims(image, axis=0)
-        image = Image.fromarray(np.uint8(image[0] * 255))  # Convert to PIL Image
+        image = torch.from_numpy(image).float()
         if self.transform:
             image = self.transform(image)
         return image, label
 
 # Create datasets and dataloaders with optimized num_workers
-train_dataset = FluxDataset(train_data, train_labels, transform=transforms.Compose([
-    transforms.ToTensor(),
-    transforms.RandomHorizontalFlip(),  # Example augmentation
-    # Add more transformations as needed
-]))
-val_dataset = FluxDataset(val_data, val_labels, transform=transforms.Compose([
-    transforms.ToTensor(),
-]))
+train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
+val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count() // 2)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count() // 2)
 
@@ -128,9 +128,9 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     
-    # Learning rate scheduler
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
-    
+    # Enable mixed precision training
+    scaler = GradScaler()
+
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -140,20 +140,23 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)  # Move data to device
             optimizer.zero_grad()
-            outputs = model(images.float())
+
+            # Mixed precision training
+            with torch.autocast_decrement_nesting():
+                outputs = model(images.float())
+                loss = criterion(outputs, labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
             _, predicted = torch.max(outputs.data, 1)
             all_labels.extend(labels.cpu().numpy())
             all_predictions.extend(predicted.cpu().numpy())
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
             running_loss += loss.item()
 
-        scheduler.step()  # Adjust learning rate
-        
         epoch_loss = running_loss / len(train_loader)
         epoch_accuracy = accuracy_score(all_labels, all_predictions)
-        epoch_precision = precision_score(all_labels, all_predictions, average='binary')
+        epoch_precision = precision_score(all_labels, all_predictions, average='binary', zero_division=1.0)
         epoch_recall = recall_score(all_labels, all_predictions, average='binary')
         epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
 
