@@ -12,16 +12,17 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
-# Set up PyTorch device
-device = torch.device("cpu")
+# Check for CUDA and set up PyTorch device accordingly
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+logging.info(f"Using device: {device}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
-WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"  # Update this path
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"  # Update this path
-OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"  # Update this path
+WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux" 
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux" 
+OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models" 
 IMG_SIZE = (256, 256)  # Adjust as needed for your model
 LEARNING_RATE = 0.01  # Adjust as needed for convergence
 BATCH_SIZE = 32  # Adjust as needed for your model
@@ -57,9 +58,10 @@ class FluxNet(nn.Module):
         self.fc2 = nn.Linear(128, 2)  # Fully connected layer 2
         self.relu = nn.ReLU()  # ReLU activation
 
-    def forward(self, x):
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
+    # Forward pass
+    def forward(self, x): # x = (batch_size, 1, 256, 256)
+        x = self.pool(self.relu(self.conv1(x)))# for the 1st convolutional layer
+        x = self.pool(self.relu(self.conv2(x)))#for the 2nd convolutional layer
         x = self.dropout(x)
         x = x.view(x.size(0), -1)
         x = self.relu(self.fc1(x))
@@ -97,17 +99,17 @@ model_path = f"{OUTPUT_FOLDER}/flux_model.pth"
 
 # Function to check for the model and train if not present
 def check_and_train_model(model_path, train_loader, epochs):
-    model = FluxNet().to(device)
+    model = FluxNet().to(device)  # Move the model to the specified device
 
     if os.path.exists(model_path):
+        # Ensure that model loading accounts for the device
         model.load_state_dict(torch.load(model_path, map_location=device))
         logging.info("Model loaded successfully.")
-        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
-        logging.info("Retraining complete")
     else:
         logging.info("No pre-trained model found. Training a new model...")
-        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
-        
+
+    # Train the model
+    model = train_model_pytorch(train_loader, model, epochs, device, model_path)
     return model
 
 # Define a function for training
@@ -121,7 +123,7 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
         all_predictions = []
 
         for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
+            images, labels = images.to(device), labels.to(device)  # Move data to device
             optimizer.zero_grad()
             outputs = model(images.float())
             _, predicted = torch.max(outputs.data, 1)
