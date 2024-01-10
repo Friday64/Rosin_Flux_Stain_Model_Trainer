@@ -6,14 +6,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
 import logging
-from PIL import Image
-
+from PIL import Image  # Added this import for PIL Image
 
 # Check for CUDA and set up PyTorch device accordingly
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -90,14 +88,20 @@ class FluxDataset(Dataset):
         image = cv2.resize(image, IMG_SIZE)
         image = image / 255.0
         image = np.expand_dims(image, axis=0)
-        image = torch.from_numpy(image).float()
+        image = Image.fromarray(np.uint8(image[0] * 255))  # Convert to PIL Image
         if self.transform:
             image = self.transform(image)
         return image, label
 
 # Create datasets and dataloaders with optimized num_workers
-train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
-val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
+train_dataset = FluxDataset(train_data, train_labels, transform=transforms.Compose([
+    transforms.ToTensor(),
+    transforms.RandomHorizontalFlip(),  # Example augmentation
+    # Add more transformations as needed
+]))
+val_dataset = FluxDataset(val_data, val_labels, transform=transforms.Compose([
+    transforms.ToTensor(),
+]))
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count() // 2)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count() // 2)
 
@@ -123,6 +127,10 @@ def check_and_train_model(model_path, train_loader, epochs):
 def train_model_pytorch(train_loader, model, epochs, device, model_path):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    
+    # Learning rate scheduler
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -141,6 +149,8 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
             optimizer.step()
             running_loss += loss.item()
 
+        scheduler.step()  # Adjust learning rate
+        
         epoch_loss = running_loss / len(train_loader)
         epoch_accuracy = accuracy_score(all_labels, all_predictions)
         epoch_precision = precision_score(all_labels, all_predictions, average='binary')
