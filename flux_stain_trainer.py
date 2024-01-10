@@ -24,8 +24,9 @@ WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flu
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux" 
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models" 
 IMG_SIZE = (256, 256)  # Adjust as needed for your model
-LEARNING_RATE = 0.01  # Adjust as needed for convergence
+LEARNING_RATE = 0.001  # Adjusted learning rate
 BATCH_SIZE = 32  # Adjust as needed for your model
+NUM_EPOCHS = 10  # Adjusted number of epochs
 
 # Load data paths and labels
 all_data = []
@@ -53,27 +54,32 @@ class FluxNet(nn.Module):
         self.conv1 = nn.Conv2d(1, 32, 3, padding=1)  # Convolutional layer 1
         self.pool = nn.MaxPool2d(2, 2)  # Max pooling layer
         self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # Convolutional layer 2
-        self.dropout = nn.Dropout(0.5)  # Dropout layer
+        self.dropout1 = nn.Dropout(0.5)  # Dropout layer
         self.fc1 = nn.Linear(64 * 64 * 64, 128)  # Fully connected layer 1
         self.fc2 = nn.Linear(128, 2)  # Fully connected layer 2
         self.relu = nn.ReLU()  # ReLU activation
+        self.dropout2 = nn.Dropout(0.3)  # Additional dropout layer
 
     # Forward pass
-    def forward(self, x): # x = (batch_size, 1, 256, 256)
-        x = self.pool(self.relu(self.conv1(x)))# for the 1st convolutional layer
-        x = self.pool(self.relu(self.conv2(x)))#for the 2nd convolutional layer
-        x = self.dropout(x)
+    def forward(self, x):  # x = (batch_size, 1, 256, 256)
+        x = self.pool(self.relu(self.conv1(x)))  # for the 1st convolutional layer
+        x = self.pool(self.relu(self.conv2(x)))  # for the 2nd convolutional layer
+        x = self.dropout1(x)
         x = x.view(x.size(0), -1)
-        x = self.relu(self.fc1(x))
+        x = self.dropout2(self.relu(self.fc1(x)))
         x = self.fc2(x)
         return x
 
-# Dataset class
+# Dataset class with data augmentation
 class FluxDataset(Dataset):
     def __init__(self, data, labels, transform=None):
         self.data = data
         self.labels = labels
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomHorizontalFlip(),  # Example augmentation
+            # Add more transformations as needed
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -86,6 +92,8 @@ class FluxDataset(Dataset):
         image = image / 255.0
         image = np.expand_dims(image, axis=0)
         image = torch.from_numpy(image).float()
+        if self.transform:
+            image = self.transform(image)
         return image, label
 
 # Create datasets and dataloaders with optimized num_workers
@@ -149,18 +157,13 @@ def train_model_pytorch(train_loader, model, epochs, device, model_path):
 if __name__ == "__main__":
     def start_training():
         train_button.config(state=tk.DISABLED)
-        epochs = epochs_entry.get()
-        if not epochs.isdigit():
-            messagebox.showerror("Error", "Please enter a valid number of epochs.")
-            return
-
+        epochs = NUM_EPOCHS  # Use the adjusted number of epochs
         logging.info(f"Requested training with {epochs} epochs.")
         try:
-            check_and_train_model(model_path, train_loader, int(epochs))
+            check_and_train_model(model_path, train_loader, epochs)
         except Exception as e:
             messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
             logging.error("Training Error:", exc_info=True)
-
         train_button.config(state=tk.NORMAL)
 
     window = tk.Tk()
