@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
@@ -77,11 +78,7 @@ class FluxDataset(Dataset):
     def __init__(self, data, labels, transform=None):
         self.data = data
         self.labels = labels
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.RandomHorizontalFlip(),  # Example augmentation
-            # Add more transformations as needed
-        ])
+        self.transform = transform
 
     def __len__(self):
         return len(self.data)
