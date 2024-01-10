@@ -11,6 +11,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import tkinter as tk
 from tkinter import messagebox
 import logging
+from PIL import Image
+
 
 # Check for CUDA and set up PyTorch device accordingly
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
