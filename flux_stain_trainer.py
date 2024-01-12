@@ -1,13 +1,23 @@
 import os
 import cv2
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.cuda.amp import GradScaler
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
+import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
 import logging
+from PIL import Image
+
+# Check for CUDA and set up PyTorch device accordingly
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+logging.info(f"Using device: {device}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,9 +26,10 @@ logging.basicConfig(level=logging.INFO)
 WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
-IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.00001
-BATCH_SIZE = 64
+IMG_SIZE = (256, 256)  # Adjust as needed for your model
+LEARNING_RATE = 0.001  # Adjusted learning rate
+BATCH_SIZE = 32  # Adjust as needed for your model
+NUM_EPOCHS = 10  # Adjusted number of epochs
 
 # Load data paths and labels
 all_data = []
@@ -39,78 +50,141 @@ for filename in os.listdir(WITHOUT_FLUX_FOLDER):
 # Split the data into training and validation sets
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
 
-# Neural network class using Keras
-def create_model():
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), padding='same', activation='relu', input_shape=(256, 256, 1)),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), padding='same', activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.5),
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(2, activation='softmax')
-    ])
+# Neural network class
+class FluxNet(nn.Module):
+    def __init__(self):
+        super(FluxNet, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)  # Convolutional layer 1
+        self.pool = nn.MaxPool2d(2, 2)  # Max pooling layer
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)  # Convolutional layer 2
+        self.dropout1 = nn.Dropout(0.5)  # Dropout layer
+        self.fc1 = nn.Linear(64 * 64 * 64, 128)  # Fully connected layer 1
+        self.fc2 = nn.Linear(128, 2)  # Fully connected layer 2
+        self.relu = nn.ReLU()  # ReLU activation
+        self.dropout2 = nn.Dropout(0.3)  # Additional dropout layer
+
+    # Forward pass
+    def forward(self, x):  # x = (batch_size, 1, 256, 256)
+        x = self.pool(self.relu(self.conv1(x)))  # for the 1st convolutional layer
+        x = self.pool(self.relu(self.conv2(x)))  # for the 2nd convolutional layer
+        x = self.dropout1(x)
+        x = x.view(x.size(0), -1)
+        x = self.dropout2(self.relu(self.fc1(x)))
+        x = self.fc2(x)
+        return x
+
+# Dataset class with data augmentation
+class FluxDataset(Dataset):
+    def __init__(self, data, labels, transform=None):
+        self.data = data
+        self.labels = labels
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomHorizontalFlip(),  # Example augmentation
+            # Add more transformations as needed
+        ])
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        img_name = self.data[idx]
+        label = self.labels[idx]
+        image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
+        image = cv2.resize(image, IMG_SIZE)
+        image = image / 255.0
+        image = np.expand_dims(image, axis=0)
+        image = torch.from_numpy(image).float()
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+# Create datasets and dataloaders with optimized num_workers
+train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
+val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=os.cpu_count() // 2)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=os.cpu_count() // 2)
+
+# Path to save or load the model
+model_path = f"{OUTPUT_FOLDER}/flux_model.pth"
+
+# Function to check for the model and train if not present
+def check_and_train_model(model_path, train_loader, epochs):
+    model = FluxNet().to(device)  # Move the model to the specified device
+
+    if os.path.exists(model_path):
+        # Ensure that model loading accounts for the device
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        logging.info("Model loaded successfully.")
+    else:
+        logging.info("No pre-trained model found. Training a new model...")
+
+    # Train the model
+    model = train_model_pytorch(train_loader, model, epochs, device, model_path)
     return model
 
-# Preprocess and load data
-def preprocess_image(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    image = cv2.resize(image, IMG_SIZE)
-    image = image / 255.0
-    image = np.expand_dims(image, axis=-1)  # Add channel dimension
-    return image
+# Define a function for training
+def train_model_pytorch(train_loader, model, epochs, device, model_path):
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    
+    # Enable mixed precision training
+    scaler = GradScaler()
 
-def load_data(data_paths, labels):
-    images = np.array([preprocess_image(path) for path in data_paths])
-    labels = np.array(labels)
-    return images, labels
+    for epoch in range(epochs):
+        model.train()
+        running_loss = 0.0
+        all_labels = []
+        all_predictions = []
 
-train_images, train_labels = load_data(train_data, train_labels)
-val_images, val_labels = load_data(val_data, val_labels)
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)  # Move data to device
+            optimizer.zero_grad()
 
-# Create and compile the model
-model = create_model()
-model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE),
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
+            # Mixed precision training
+            with torch.autocast_decrement_nesting():
+                outputs = model(images.float())
+                loss = criterion(outputs, labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-# Function to train the model
-def train_model(model, train_images, train_labels, val_images, val_labels, epochs):
-    history = model.fit(train_images, train_labels, epochs=epochs, 
-                        validation_data=(val_images, val_labels))
-    return history
+            _, predicted = torch.max(outputs.data, 1)
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted.cpu().numpy())
+            running_loss += loss.item()
 
-# Save the model
-def save_model(model, model_path):
-    model.save(model_path)
+        epoch_loss = running_loss / len(train_loader)
+        epoch_accuracy = accuracy_score(all_labels, all_predictions)
+        epoch_precision = precision_score(all_labels, all_predictions, average='binary', zero_division=1.0)
+        epoch_recall = recall_score(all_labels, all_predictions, average='binary')
+        epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
 
-# Tkinter UI setup
-def start_training():
-    train_button.config(state=tk.DISABLED)
-    epochs = epochs_entry.get()
-    if not epochs.isdigit():
-        messagebox.showerror("Error", "Please enter a valid number of epochs.")
-        return
+        print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, Precision: {epoch_precision:.4f}, Recall: {epoch_recall:.4f}, F1 Score: {epoch_f1:.4f}")
 
-    logging.info(f"Requested training with {epochs} epochs.")
-    try:
-        history = train_model(model, train_images, train_labels, val_images, val_labels, int(epochs))
-        save_model(model, f"{OUTPUT_FOLDER}/flux_model_tf")
-        messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
-    except Exception as e:
-        messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
-        logging.error("Training Error:", exc_info=True)
+    torch.save(model.state_dict(), model_path)
+    print("Training complete, model saved at", model_path)
+    messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
 
-    train_button.config(state=tk.NORMAL)
+if __name__ == "__main__":
+    def start_training():
+        train_button.config(state=tk.DISABLED)
+        epochs = NUM_EPOCHS  # Use the adjusted number of epochs
+        logging.info(f"Requested training with {epochs} epochs.")
+        try:
+            check_and_train_model(model_path, train_loader, epochs)
+        except Exception as e:
+            messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
+            logging.error("Training Error:", exc_info=True)
+        train_button.config(state=tk.NORMAL)
 
-window = tk.Tk()
-window.title("Flux Stain Detector")
+    window = tk.Tk()
+    window.title("Flux Stain Detector")
 
-tk.Label(window, text="Number of Epochs:").pack()
-epochs_entry = tk.Entry(window)
-epochs_entry.pack()
-train_button = tk.Button(window, text="Train Model", command=start_training)
-train_button.pack()
+    tk.Label(window, text="Number of Epochs:").pack()
+    epochs_entry = tk.Entry(window)
+    epochs_entry.pack()
+    train_button = tk.Button(window, text="Train Model", command=start_training)
+    train_button.pack()
 
-window.mainloop()
+    window.mainloop()  # Start the Tkinter event loop
