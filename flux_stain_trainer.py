@@ -24,6 +24,11 @@ if gpus:
 else:
     print("No GPU detected. TensorFlow will use CPU.")
 
+if tf.compat.v1.executing_eagerly_outside_functions():
+    print("Eager execution is enabled.")
+else:
+    print("Eager execution is not enabled.")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -32,8 +37,8 @@ WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flu
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.01
-BATCH_SIZE = 64
+LEARNING_RATE = 0.0001
+BATCH_SIZE = 32
 
 # Load data paths and labels
 all_data = []
