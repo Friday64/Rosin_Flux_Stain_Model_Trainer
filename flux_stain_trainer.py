@@ -1,29 +1,24 @@
 import os
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+import tensorflow as tf
+from tensorflow.keras import layers, models, optimizers
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import tkinter as tk
 from tkinter import messagebox
 import logging
 
-device = torch.device("cpu")
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
-WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"  # Update this path
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"  # Update this path
-OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"  # Update this path
+WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.00001
-BATCH_SIZE = 64  # Adjust as needed
+BATCH_SIZE = 64
 
 # Load data paths and labels
 all_data = []
@@ -44,139 +39,78 @@ for filename in os.listdir(WITHOUT_FLUX_FOLDER):
 # Split the data into training and validation sets
 train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
 
-# Neural network class
-class FluxNet(nn.Module):
-    def __init__(self):
-        super(FluxNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
-        self.dropout = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64 * 64 * 64, 128)
-        self.fc2 = nn.Linear(128, 2)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = self.dropout(x)
-        x = x.view(x.size(0), -1)
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
-
-# Dataset class
-class FluxDataset(Dataset):
-    def __init__(self, data, labels, transform=None):
-        self.data = data
-        self.labels = labels
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        img_name = self.data[idx]
-        label = self.labels[idx]
-        image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
-        image = cv2.resize(image, IMG_SIZE)
-        image = image / 255.0
-        image = np.expand_dims(image, axis=0)
-        image = torch.from_numpy(image).float()
-        return image, label
-
-# Create datasets and dataloaders
-train_dataset = FluxDataset(train_data, train_labels, transform=transforms.ToTensor())
-val_dataset = FluxDataset(val_data, val_labels, transform=transforms.ToTensor())
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-
-# Path to save or load the model
-model_path = f"{OUTPUT_FOLDER}/flux_model.pth"
-
-# Function to check for the model and train if not present
-def check_and_train_model(model_path, train_loader, epochs):
-    model = FluxNet().to(device)
-
-    if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, map_location=device))
-        logging.info("Model loaded successfully.")
-        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
-        logging.info("retraining complete")
-    else:
-        logging.info("No pre-trained model found. Training a new model...")
-        model = train_model_pytorch(train_loader, model, epochs, device, model_path)
-        
+# Neural network class using Keras
+def create_model():
+    model = models.Sequential([
+        layers.Conv2D(32, (3, 3), padding='same', activation='relu', input_shape=(256, 256, 1)),
+        layers.MaxPooling2D((2, 2)),
+        layers.Conv2D(64, (3, 3), padding='same', activation='relu'),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.5),
+        layers.Flatten(),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(2, activation='softmax')
+    ])
     return model
 
-# Define a function for training
-def train_model_pytorch(train_loader, model, epochs, device, model_path):
-    print("Training function called.")
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+# Preprocess and load data
+def preprocess_image(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    image = cv2.resize(image, IMG_SIZE)
+    image = image / 255.0
+    image = np.expand_dims(image, axis=-1)  # Add channel dimension
+    return image
 
+def load_data(data_paths, labels):
+    images = np.array([preprocess_image(path) for path in data_paths])
+    labels = np.array(labels)
+    return images, labels
+
+train_images, train_labels = load_data(train_data, train_labels)
+val_images, val_labels = load_data(val_data, val_labels)
+
+# Create and compile the model
+model = create_model()
+model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE),
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Function to train the model
+def train_model(model, train_images, train_labels, val_images, val_labels, epochs):
+    history = model.fit(train_images, train_labels, epochs=epochs, 
+                        validation_data=(val_images, val_labels))
+    return history
+
+# Save the model
+def save_model(model, model_path):
+    model.save(model_path)
+
+# Tkinter UI setup
+def start_training():
+    train_button.config(state=tk.DISABLED)
+    epochs = epochs_entry.get()
+    if not epochs.isdigit():
+        messagebox.showerror("Error", "Please enter a valid number of epochs.")
+        return
+
+    logging.info(f"Requested training with {epochs} epochs.")
     try:
-        for epoch in range(epochs):
-            model.train()
-            running_loss = 0.0
-            all_labels = []
-            all_predictions = []
-
-            for images, labels in train_loader:
-                images, labels = images.to(device), labels.to(device)
-                optimizer.zero_grad()
-                outputs = model(images.float())
-                _, predicted = torch.max(outputs.data, 1)
-                all_labels.extend(labels.cpu().numpy())
-                all_predictions.extend(predicted.cpu().numpy())
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-                running_loss += loss.item()
-
-            epoch_loss = running_loss / len(train_loader)
-            epoch_accuracy = accuracy_score(all_labels, all_predictions)
-            epoch_precision = precision_score(all_labels, all_predictions, average='binary')
-            epoch_recall = recall_score(all_labels, all_predictions, average='binary')
-            epoch_f1 = f1_score(all_labels, all_predictions, average='binary')
-            
-            # Print training metrics for each epoch
-            print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, Precision: {epoch_precision:.4f}, Recall: {epoch_recall:.4f}, F1 Score: {epoch_f1:.4f}")
-
-        torch.save(model.state_dict(), model_path)
-        print("Training complete, model saved at", model_path)
+        history = train_model(model, train_images, train_labels, val_images, val_labels, int(epochs))
+        save_model(model, f"{OUTPUT_FOLDER}/flux_model_tf")
         messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
-
     except Exception as e:
-        print("Error during training:", str(e))
+        messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
+        logging.error("Training Error:", exc_info=True)
 
-    return model
+    train_button.config(state=tk.NORMAL)
 
-if __name__ == "__main__":
-    # Tkinter UI setup
-    def start_training():
-        train_button.config(state=tk.DISABLED)  # Disable the button while training
-        epochs = epochs_entry.get()
-        if not epochs.isdigit():  # Simple validation to ensure epochs is a number
-            messagebox.showerror("Error", "Please enter a valid number of epochs.")
-            return
+window = tk.Tk()
+window.title("Flux Stain Detector")
 
-        logging.info(f"Requested training with {epochs} epochs.")
-        try:
-            # Call the training function directly
-            check_and_train_model(model_path, train_loader, int(epochs))
-        except Exception as e:
-            messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
-            logging.error("Training Error:", exc_info=True)
+tk.Label(window, text="Number of Epochs:").pack()
+epochs_entry = tk.Entry(window)
+epochs_entry.pack()
+train_button = tk.Button(window, text="Train Model", command=start_training)
+train_button.pack()
 
-        train_button.config(state=tk.NORMAL) 
-    window = tk.Tk()
-    window.title("Flux Stain Detector")
-
-    tk.Label(window, text="Number of Epochs:").pack()
-    epochs_entry = tk.Entry(window)
-    epochs_entry.pack()
-    train_button = tk.Button(window, text="Train Model", command=start_training)
-    train_button.pack()
-
-    window.mainloop()  # Start the Tkinter event loop
+window.mainloop()
