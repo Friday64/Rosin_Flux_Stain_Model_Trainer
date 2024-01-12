@@ -9,6 +9,21 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
+# Check if TensorFlow is using GPU
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(f"{len(gpus)} Physical GPUs, {len(logical_gpus)} Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+else:
+    print("No GPU detected. TensorFlow will use CPU.")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -17,7 +32,7 @@ WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flu
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
 IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.00001
+LEARNING_RATE = 0.01
 BATCH_SIZE = 64
 
 # Load data paths and labels
