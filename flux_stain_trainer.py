@@ -1,62 +1,111 @@
+# Importing necessary libraries
 import os
+from pyexpat import model
 import tensorflow as tf
 from keras import layers, models, optimizers
-from keras.preprocessing.image import ImageDataGenerator
-from keras import layers, models, optimizers
-from keras.mixed_precision import set_global_policy
+from keras.applications import MobileNetV2  # Added import for MobileNetV2
+from keras.preprocessing.image import ImageDataGenerator  # Added import for ImageDataGenerator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+import numpy as np
 import tkinter as tk
 from tkinter import messagebox
 import logging
-import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
 WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-OUTPUT_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models"
-MODEL_PATH = f"{OUTPUT_FOLDER}/flux_model_tf"
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop\Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/flux_model_tf"
 IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.001
-BATCH_SIZE = 64
+LEARNING_RATE = 0.0001
+BATCH_SIZE = 32
 
 # Enable mixed precision training
-set_global_policy('mixed_float16')
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Load data paths and labels
-all_data = []
-all_labels = []
+def load_data_paths():
+    all_data = []
+    all_labels = []
+    for folder, label in [(WITH_FLUX_FOLDER, 1), (WITHOUT_FLUX_FOLDER, 0)]:
+        for filename in os.listdir(folder):
+            if filename.endswith(('.png', '.jpg', '.jpeg')):
+                all_data.append(os.path.join(folder, filename))
+                all_labels.append(label)
+    return all_data, all_labels
 
-for folder, label in [(WITH_FLUX_FOLDER, 1), (WITHOUT_FLUX_FOLDER, 0)]:
-    for filename in os.listdir(folder):
-        if filename.endswith(('.png', '.jpg', '.jpeg')):
-            all_data.append(os.path.join(folder, filename))
-            all_labels.append(label)
-
-# Split data into training and validation sets
-train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
-
-# Neural network class using Keras
+# Transfer Learning model creation function
 def create_model():
+    # Create the base model from the pre-trained MobileNet V2
+    base_model = MobileNetV2(input_shape=(256, 256, 3), include_top=False, weights='imagenet')
+    base_model.trainable = False  # Freeze the base model
+
     model = models.Sequential([
-        layers.SeparableConv2D(32, (3, 3), padding='same', activation='relu', input_shape=(256, 256, 1)),
-        layers.MaxPooling2D((2, 2)),
-        layers.SeparableConv2D(64, (3, 3), padding='same', activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.5),
-        layers.Flatten(),
+        base_model,
+        layers.GlobalAveragePooling2D(),
         layers.Dense(128, activation='relu'),
-        layers.Dense(2, activation='softmax')
+        layers.Dropout(0.5),
+        layers.Dense(2, activation='softmax')  # Assuming you have two classes
     ])
+
     model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
     return model
 
-# Check if model exists, load it, otherwise create a new one
+
+# Data augmentation
+def get_data_augmentation():
+    return ImageDataGenerator(
+        rotation_range=20,
+        zoom_range=0.15,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.15,
+        horizontal_flip=True,
+        fill_mode="nearest"
+    )
+
+# Preprocess and load data using tf.data
+def preprocess_image(image_path):
+    image = tf.io.read_file(image_path)
+    image = tf.image.decode_png(image, channels=3)  # Changed to 3 channels for RGB
+    image = tf.image.resize(image, IMG_SIZE)
+    image = tf.keras.applications.mobilenet_v2.preprocess_input(image)  # Preprocessing specific to MobileNetV2
+    return image
+
+def load_dataset(data_paths, labels, batch_size):
+    path_ds = tf.data.Dataset.from_tensor_slices(data_paths)
+    image_ds = path_ds.map(preprocess_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    label_ds = tf.data.Dataset.from_tensor_slices(tf.cast(labels, tf.int64))
+    dataset = tf.data.Dataset.zip((image_ds, label_ds))
+    return dataset.shuffle(len(data_paths)).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+
+# Learning Rate Scheduler
+def get_optimizer():
+    lr_schedule = optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=LEARNING_RATE,
+        decay_steps=10000,
+        decay_rate=0.9)
+    return optimizers.Adam(learning_rate=lr_schedule)
+
+# Function to train the model
+def train_model(model, train_ds, val_ds, epochs):
+    history = model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=epochs
+    )
+    return history
+
+# Function to save the model
+def save_model(model, model_path):
+    model.save(model_path)
+
+# Function to load or create model
 def load_or_create_model(model_path):
     if os.path.exists(model_path):
         print("Loading existing model.")
@@ -65,67 +114,19 @@ def load_or_create_model(model_path):
         print("Creating new model.")
         return create_model()
 
-model = load_or_create_model(MODEL_PATH)
-
-# Preprocess and load data using tf.data
-def preprocess_image(image_path):
-    image = tf.io.read_file(image_path)
-    image = tf.image.decode_png(image, channels=1)
-    image = tf.image.resize(image, IMG_SIZE)
-    image /= 255.0
-    return image
-
-def load_data(data_paths, labels):
-    path_ds = tf.data.Dataset.from_tensor_slices(data_paths)
-    image_ds = path_ds.map(preprocess_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    label_ds = tf.data.Dataset.from_tensor_slices(tf.cast(labels, tf.int64))
-    return tf.data.Dataset.zip((image_ds, label_ds))
-
-train_ds = load_data(train_data, train_labels).batch(BATCH_SIZE)
-val_ds = load_data(val_data, val_labels).batch(BATCH_SIZE)
-
-# Image Augmentation
-augmentation = ImageDataGenerator(
-    rotation_range=20,
-    zoom_range=0.15,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.15,
-    horizontal_flip=True,
-    fill_mode="nearest"
-)
-
-# Learning Rate Scheduler
-lr_schedule = optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=LEARNING_RATE,
-    decay_steps=10000,
-    decay_rate=0.9)
-optimizer = optimizers.Adam(learning_rate=lr_schedule)
-
-# Function to train the model with augmentation
-def train_model_with_augmentation(model, train_ds, val_ds, epochs):
-    history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=epochs
-    )
-    return history
-
-# Save the model
-def save_model(model, model_path):
-    model.save(model_path)
-
-# Tkinter UI setup for training
-def start_training():
+# Tkinter GUI setup for training
+def start_training(train_ds, val_ds, val_labels):
     train_button.config(state=tk.DISABLED)
     epochs = epochs_entry.get()
     if not epochs.isdigit():
         messagebox.showerror("Error", "Please enter a valid number of epochs.")
+        train_button.config(state=tk.NORMAL)
         return
 
     logging.info(f"Requested training with {epochs} epochs.")
     try:
-        history = train_model_with_augmentation(model, train_ds, val_ds, int(epochs))
+        model = load_or_create_model(MODEL_PATH)
+        history = train_model(model, train_ds, val_ds, int(epochs))
         save_model(model, MODEL_PATH)
 
         # Model Evaluation
@@ -141,13 +142,25 @@ def start_training():
 
     train_button.config(state=tk.NORMAL)
 
-window = tk.Tk()
-window.title("Flux Stain Detector")
+def main():
+    all_data, all_labels = load_data_paths()
+    train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
+    global train_ds, val_ds
+    train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
+    val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
 
-tk.Label(window, text="Number of Epochs:").pack()
-epochs_entry = tk.Entry(window)
-epochs_entry.pack()
-train_button = tk.Button(window, text="Train Model", command=start_training)
-train_button.pack()
+    window = tk.Tk()
+    window.title("Flux Stain Detector")
 
-window.mainloop()
+    tk.Label(window, text="Number of Epochs:").pack()
+    global epochs_entry
+    epochs_entry = tk.Entry(window)
+    epochs_entry.pack()
+    global train_button
+    train_button = tk.Button(window, text="Train Model", command=lambda: start_training(train_ds, val_ds, val_labels))
+    train_button.pack()
+
+    window.mainloop()
+
+if __name__ == "__main__":
+    main()
