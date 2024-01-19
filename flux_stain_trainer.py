@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 # Constants for paths and hyperparameters
 WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop\Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/flux_model_tf"
+MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Model/flux_model_tf"
 IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.0001
 BATCH_SIZE = 32
@@ -39,23 +39,25 @@ def load_data_paths():
 
 # Transfer Learning model creation function
 def create_model():
-    # Create the base model from the pre-trained MobileNet V2
     base_model = MobileNetV2(input_shape=(256, 256, 3), include_top=False, weights='imagenet')
-    base_model.trainable = False  # Freeze the base model
+    base_model.trainable = False
 
     model = models.Sequential([
         base_model,
         layers.GlobalAveragePooling2D(),
         layers.Dense(128, activation='relu'),
         layers.Dropout(0.5),
-        layers.Dense(2, activation='softmax')  # Assuming you have two classes
+        layers.Dense(2, activation='softmax')
     ])
 
     model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    return model
+    
+    print(model.summary())  # Add this line to print the model structure
 
+    
+    return model
 
 # Data augmentation
 def get_data_augmentation():
@@ -72,7 +74,7 @@ def get_data_augmentation():
 # Preprocess and load data using tf.data
 def preprocess_image(image_path):
     image = tf.io.read_file(image_path)
-    image = tf.image.decode_png(image, channels=3)  # Changed to 3 channels for RGB
+    image = tf.image.decode_jpeg(image, channels=3)  # Changed to 3 channels for RGB
     image = tf.image.resize(image, IMG_SIZE)
     image = tf.keras.applications.mobilenet_v2.preprocess_input(image)  # Preprocessing specific to MobileNetV2
     return image
