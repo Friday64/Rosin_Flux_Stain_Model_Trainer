@@ -1,0 +1,11 @@
+{
+    "python":
+    {
+        "python.pythonPath": "C:/Users/Matthew/.pyenv/pyenv-win/versions/3.9.13/python3.exe",
+        "python.analysis.extraPaths": ["C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Stain_Trainer_AI/venv/Lib/site-packages"],
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.linting.pylintArgsi": ["--disable=W,C,R"]
+    }
+    
+}
