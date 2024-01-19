@@ -9,25 +9,6 @@ import tkinter as tk
 from tkinter import messagebox
 import logging
 
-# Check if TensorFlow is using GPU
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(f"{len(gpus)} Physical GPUs, {len(logical_gpus)} Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
-else:
-    print("No GPU detected. TensorFlow will use CPU.")
-
-if tf.compat.v1.executing_eagerly_outside_functions():
-    print("Eager execution is enabled.")
-else:
-    print("Eager execution is not enabled.")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
