@@ -144,6 +144,7 @@ def start_training(train_ds, val_ds, val_labels):
 
     train_button.config(state=tk.NORMAL)
 
+# Main function
 def main():
     all_data, all_labels = load_data_paths()
     train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
