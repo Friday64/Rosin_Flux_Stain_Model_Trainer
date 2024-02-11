@@ -8,7 +8,7 @@ from tkinter import messagebox
 from keras import layers, models, optimizers
 from keras.applications import MobileNetV2
 from keras.preprocessing.image import ImageDataGenerator
-import logging
+
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import classification_report
