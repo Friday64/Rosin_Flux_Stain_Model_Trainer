@@ -1,15 +1,18 @@
-# Importing necessary libraries
+# Standard library imports
+import logging
 import os
-import tensorflow as tf
+import tkinter as tk
+from tkinter import messagebox
+
+# Related third-party imports
 from keras import layers, models, optimizers
 from keras.applications import MobileNetV2
 from keras.preprocessing.image import ImageDataGenerator
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-import numpy as np
-import tkinter as tk
-from tkinter import messagebox
 import logging
+import numpy as np
+import tensorflow as tf
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
