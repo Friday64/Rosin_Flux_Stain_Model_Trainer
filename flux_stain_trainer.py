@@ -1,10 +1,9 @@
 # Importing necessary libraries
 import os
-from pyexpat import model
 import tensorflow as tf
 from keras import layers, models, optimizers
-from keras.applications import MobileNetV2  # Added import for MobileNetV2
-from keras.preprocessing.image import ImageDataGenerator  # Added import for ImageDataGenerator
+from keras.applications import MobileNetV2
+from keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import numpy as np
@@ -17,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
 WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop\Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
+WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/flux_model_tf"
 IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.1
@@ -54,9 +53,8 @@ def create_model():
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
     
-    print(model.summary())  # Add this line to print the model structure
+    model.summary()  # Print the model structure
 
-    
     return model
 
 # Data augmentation
@@ -74,9 +72,9 @@ def get_data_augmentation():
 # Preprocess and load data using tf.data
 def preprocess_image(image_path):
     image = tf.io.read_file(image_path)
-    image = tf.image.decode_jpeg(image, channels=3)  # Changed to 3 channels for RGB
+    image = tf.image.decode_jpeg(image, channels=3)
     image = tf.image.resize(image, IMG_SIZE)
-    image = tf.keras.applications.mobilenet_v2.preprocess_input(image)  # Preprocessing specific to MobileNetV2
+    image = tf.keras.applications.mobilenet_v2.preprocess_input(image)
     return image
 
 def load_dataset(data_paths, labels, batch_size):
@@ -116,6 +114,17 @@ def load_or_create_model(model_path):
         print("Creating new model.")
         return create_model()
 
+# Function to convert the model to TensorFlow Lite
+def convert_to_tflite(model_path, tflite_model_path, quantize=False):
+    model = tf.keras.models.load_model(model_path)
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    if quantize:
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    tflite_model = converter.convert()
+    with open(tflite_model_path, 'wb') as f:
+        f.write(tflite_model)
+    print(f'Model converted to TensorFlow Lite and saved to {tflite_model_path}')
+
 # Tkinter GUI setup for training
 def start_training(train_ds, val_ds, val_labels):
     train_button.config(state=tk.DISABLED)
@@ -131,10 +140,13 @@ def start_training(train_ds, val_ds, val_labels):
         history = train_model(model, train_ds, val_ds, int(epochs))
         save_model(model, MODEL_PATH)
 
+        # Convert and save the TensorFlow Lite model
+        tflite_model_path = MODEL_PATH + "_tflite"
+        convert_to_tflite(MODEL_PATH, tflite_model_path, quantize=True)
+
         # Model Evaluation
         predictions = model.predict(val_ds)
         predicted_classes = np.argmax(predictions, axis=1)
-
         print(classification_report(val_labels, predicted_classes, zero_division=1))
 
         messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
