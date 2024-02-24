@@ -29,6 +29,7 @@ BATCH_SIZE = 32
 # Enable mixed precision training
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
+
 # Load data paths and labels
 def load_data_paths():
     all_data = []
