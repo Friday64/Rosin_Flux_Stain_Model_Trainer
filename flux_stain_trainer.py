@@ -5,10 +5,10 @@ import tkinter as tk
 from tkinter import messagebox
 
 # Related third-party imports
+from tensorflow import keras
 from keras import layers, models, optimizers
 from keras.applications import MobileNetV2
 from keras.preprocessing.image import ImageDataGenerator
-
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import classification_report
@@ -28,7 +28,6 @@ BATCH_SIZE = 32
 
 # Enable mixed precision training
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
-
 
 # Load data paths and labels
 def load_data_paths():
