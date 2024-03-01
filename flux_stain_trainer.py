@@ -1,19 +1,18 @@
 # Standard library imports
 import logging
 import os
-import tkinter as tk
-from tkinter import messagebox
 
 # Related third-party imports
 import tensorflow as tf
-import keras
 from tensorflow import keras
-from keras import layers, models, optimizers
 from keras.applications import MobileNetV2
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+
+# PyQt5 imports for GUI
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,15 +45,15 @@ def create_model():
     base_model = MobileNetV2(input_shape=(256, 256, 3), include_top=False, weights='imagenet')
     base_model.trainable = False
 
-    model = models.Sequential([
+    model = keras.Sequential([
         base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(2, activation='softmax')
+        keras.layers.GlobalAveragePooling2D(),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dropout(0.5),
+        keras.layers.Dense(2, activation='softmax')
     ])
 
-    model.compile(optimizer=optimizers.Adam(learning_rate=LEARNING_RATE),
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
     
@@ -79,7 +78,7 @@ def preprocess_image(image_path):
     image = tf.io.read_file(image_path)
     image = tf.image.decode_jpeg(image, channels=3)
     image = tf.image.resize(image, IMG_SIZE)
-    image = tf.keras.applications.mobilenet_v2.preprocess_input(image)
+    image = keras.applications.mobilenet_v2.preprocess_input(image)
     return image
 
 def load_dataset(data_paths, labels, batch_size):
@@ -88,14 +87,6 @@ def load_dataset(data_paths, labels, batch_size):
     label_ds = tf.data.Dataset.from_tensor_slices(tf.cast(labels, tf.int64))
     dataset = tf.data.Dataset.zip((image_ds, label_ds))
     return dataset.shuffle(len(data_paths)).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-
-# Learning Rate Scheduler
-def get_optimizer():
-    lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=LEARNING_RATE,
-        decay_steps=10000,
-        decay_rate=0.9)
-    return optimizers.Adam(learning_rate=lr_schedule)
 
 # Function to train the model
 def train_model(model, train_ds, val_ds, epochs):
@@ -113,74 +104,80 @@ def save_model(model, model_path):
 # Function to load or create model
 def load_or_create_model(model_path):
     if os.path.exists(model_path):
-        print("Loading existing model.")
-        return models.load_model(model_path)
+        logging.info("Loading existing model.")
+        return keras.models.load_model(model_path)
     else:
-        print("Creating new model.")
+        logging.info("Creating new model.")
         return create_model()
 
 # Function to convert the model to TensorFlow Lite
 def convert_to_tflite(model_path, tflite_model_path, quantize=False):
-    model = tf.keras.models.load_model(model_path)
+    model = keras.models.load_model(model_path)
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     if quantize:
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
     tflite_model = converter.convert()
     with open(tflite_model_path, 'wb') as f:
         f.write(tflite_model)
-    print(f'Model converted to TensorFlow Lite and saved to {tflite_model_path}')
+    logging.info(f'Model converted to TensorFlow Lite and saved to {tflite_model_path}')
 
-# Tkinter GUI setup for training
-def start_training(train_ds, val_ds, val_labels):
-    train_button.config(state=tk.DISABLED)
-    epochs = epochs_entry.get()
-    if not epochs.isdigit():
-        messagebox.showerror("Error", "Please enter a valid number of epochs.")
-        train_button.config(state=tk.NORMAL)
-        return
+# PyQt5 GUI setup for training
+class TrainingWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+    
+    def initUI(self):
+        self.setWindowTitle('Flux Stain Detector Training')
+        layout = QVBoxLayout()
 
-    logging.info(f"Requested training with {epochs} epochs.")
-    try:
-        model = load_or_create_model(MODEL_PATH)
-        history = train_model(model, train_ds, val_ds, int(epochs))
-        save_model(model, MODEL_PATH)
+        label = QLabel('Number of Epochs:')
+        self.epochsEntry = QLineEdit()
+        self.trainButton = QPushButton('Train Model')
+        self.trainButton.clicked.connect(self.startTraining)
 
-        # Convert and save the TensorFlow Lite model
-        tflite_model_path = MODEL_PATH + "_tflite"
-        convert_to_tflite(MODEL_PATH, tflite_model_path, quantize=True)
+        layout.addWidget(label)
+        layout.addWidget(self.epochsEntry)
+        layout.addWidget(self.trainButton)
 
-        # Model Evaluation
-        predictions = model.predict(val_ds)
-        predicted_classes = np.argmax(predictions, axis=1)
-        print(classification_report(val_labels, predicted_classes, zero_division=1))
+        self.setLayout(layout)
+        self.show()
 
-        messagebox.showinfo("Training Complete", "Model trained and saved successfully.")
-    except Exception as e:
-        messagebox.showerror("Training Error", f"An error occurred: {str(e)}")
-        logging.error("Training Error:", exc_info=True)
+    def startTraining(self):
+        self.trainButton.setEnabled(False)
+        epochs = self.epochsEntry.text()
+        if not epochs.isdigit():
+            QMessageBox.critical(self, "Error", "Please enter a valid number of epochs.")
+            self.trainButton.setEnabled(True)
+            return
 
-    train_button.config(state=tk.NORMAL)
+        try:
+            model = load_or_create_model(MODEL_PATH)
+            train_ds, val_ds = self.prepareData()
+            history = train_model(model, train_ds, val_ds, int(epochs))
+            save_model(model, MODEL_PATH)
 
-# Main function
+            # Convert and save the TensorFlow Lite model
+            convert_to_tflite(MODEL_PATH, TFLITE_MODEL_PATH, quantize=True)
+
+            QMessageBox.information(self, "Training Complete", "Model trained and saved successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Training Error", f"An error occurred: {str(e)}")
+            logging.error("Training Error", exc_info=True)
+
+        self.trainButton.setEnabled(True)
+
+    def prepareData(self):
+        all_data, all_labels = load_data_paths()
+        train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
+        train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
+        val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
+        return train_ds, val_ds
+
 def main():
-    all_data, all_labels = load_data_paths()
-    train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
-    global train_ds, val_ds
-    train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
-    val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
-
-    window = tk.Tk()
-    window.title("Flux Stain Detector")
-
-    tk.Label(window, text="Number of Epochs:").pack()
-    global epochs_entry
-    epochs_entry = tk.Entry(window)
-    epochs_entry.pack()
-    global train_button
-    train_button = tk.Button(window, text="Train Model", command=lambda: start_training(train_ds, val_ds, val_labels))
-    train_button.pack()
-
-    window.mainloop()
+    app = QApplication([])
+    ex = TrainingWindow()
+    app.exec_()
 
 if __name__ == "__main__":
     main()
