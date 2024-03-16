@@ -26,6 +26,25 @@ IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
+
+def check_and_create_folders(model_path, tflite_path):
+    model_folder = os.path.dirname(model_path)
+    tflite_folder = os.path.dirname(tflite_path)
+    folders_to_check = [model_folder, tflite_folder]
+
+    for folder in folders_to_check:
+        if not os.path.exists(folder):
+            try:
+                os.makedirs(folder)
+                logging.info(f"Folder '{folder}' created.")
+            except Exception as e:
+                logging.error(f"Error creating folder '{folder}': {e}")
+        else:
+            logging.info(f"Folder '{folder}' already exists.")
+
+# Add this function call at the beginning of your code
+check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH)
+
 # Enable mixed precision training
 tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
