@@ -117,28 +117,28 @@ def train_model(model, train_ds, val_ds, epochs):
     return history
 
 # Function to save the model
-def save_model(model, model_path):
-    model.save(model_path)
+def save_model(model, MODEL_PATH):
+    model.save(MODEL_PATH)
 
 # Function to load or create model
-def load_or_create_model(model_path):
-    if os.path.exists(model_path):
+def load_or_create_model(MODEL_PATH):
+    if os.path.exists(MODEL_PATH):
         logging.info("Loading existing model.")
-        return keras.models.load_model(model_path)
+        return keras.models.load_model(MODEL_PATH)
     else:
         logging.info("Creating new model.")
         return create_model()
 
 # Function to convert the model to TensorFlow Lite
-def convert_to_tflite(model_path, tflite_model_path, quantize=False):
-    model = keras.models.load_model(model_path)
+def convert_to_tflite(MODEL_PATH, TFLITE_MODEL_PATH, quantize=False):
+    model = keras.models.load_model(MODEL_PATH)
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     if quantize:
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
     tflite_model = converter.convert()
-    with open(tflite_model_path, 'wb') as f:
+    with open(TFLITE_MODEL_PATH, 'wb') as f:
         f.write(tflite_model)
-    logging.info(f'Model converted to TensorFlow Lite and saved to {tflite_model_path}')
+    logging.info(f'Model converted to TensorFlow Lite and saved to {TFLITE_MODEL_PATH}')
 
 # PyQt5 GUI setup for training
 class TrainingWindow(QWidget):
