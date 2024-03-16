@@ -26,10 +26,10 @@ IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
-
-def check_and_create_folders(model_path, tflite_path):
-    model_folder = os.path.dirname(model_path)
-    tflite_folder = os.path.dirname(tflite_path)
+#Function to check and create folders and create them if they don't exist
+def check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH):
+    model_folder = os.path.dirname(MODEL_PATH)
+    tflite_folder = os.path.dirname(TFLITE_MODEL_PATH)
     folders_to_check = [model_folder, tflite_folder]
 
     for folder in folders_to_check:
