@@ -22,7 +22,7 @@ WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flu
 WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
 MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/flux_model_tf"
 TFLITE_MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/flux_model_tf_lite"
-IMG_SIZE = (256, 256)
+IMG_SIZE = (256, 256) 
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
