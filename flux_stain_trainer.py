@@ -96,7 +96,9 @@ def load_or_create_model():
         return keras.models.load_model(MODEL_PATH)
     else:
         logging.info("Creating new model.")
-        return create_model()
+        model = create_model()
+        model.save(MODEL_PATH)
+        return model
 
 # PyQt5 GUI setup for training
 class TrainingWindow(QWidget):
