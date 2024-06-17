@@ -92,8 +92,14 @@ def load_dataset(data_paths, labels, batch_size):
 # Function to load or create model
 def load_or_create_model():
     if os.path.exists(MODEL_PATH):
-        logging.info("Loading existing model.")
-        return keras.models.load_model(MODEL_PATH)
+        try:
+            logging.info("Loading existing model.")
+            return keras.models.load_model(MODEL_PATH)
+        except OSError as e:
+            logging.error(f"Error loading model: {e}. Creating a new model.")
+            model = create_model()
+            model.save(MODEL_PATH)
+            return model
     else:
         logging.info("Creating new model.")
         model = create_model()
