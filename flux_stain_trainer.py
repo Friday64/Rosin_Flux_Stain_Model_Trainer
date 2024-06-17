@@ -19,6 +19,9 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdi
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+# Load environment variables
+load_dotenv()
+
 # Constants for paths and hyperparameters
 WITH_FLUX_FOLDER = os.getenv("WITH_FLUX_FOLDER")
 WITHOUT_FLUX_FOLDER = os.getenv("WITHOUT_FLUX_FOLDER")
@@ -28,7 +31,7 @@ IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
-#Function to check and create folders and create them if they don't exist
+# Function to check and create folders
 def check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH):
     model_folder = os.path.dirname(MODEL_PATH)
     tflite_folder = os.path.dirname(TFLITE_MODEL_PATH)
@@ -47,8 +50,9 @@ def check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH):
 # Add this function call at the beginning of your code
 check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH)
 
-# Enable mixed precision training
-tf.keras.mixed_precision.set_global_policy('mixed_float16')
+# Enable mixed precision training if a compatible GPU is available
+if tf.config.list_physical_devices('GPU'):
+    tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Load data paths and labels
 def load_data_paths():
