@@ -26,16 +26,14 @@ load_dotenv()
 WITH_FLUX_FOLDER = os.getenv("WITH_FLUX_FOLDER")
 WITHOUT_FLUX_FOLDER = os.getenv("WITHOUT_FLUX_FOLDER")
 MODEL_PATH = os.getenv("MODEL_PATH")
-TFLITE_MODEL_PATH = os.getenv("TFLITE_MODEL_PATH")
 IMG_SIZE = (256, 256) 
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
 # Function to check and create folders
-def check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH):
+def check_and_create_folders(MODEL_PATH):
     model_folder = os.path.dirname(MODEL_PATH)
-    tflite_folder = os.path.dirname(TFLITE_MODEL_PATH)
-    folders_to_check = [model_folder, tflite_folder]
+    folders_to_check = [model_folder]
 
     for folder in folders_to_check:
         if not os.path.exists(folder):
@@ -48,7 +46,7 @@ def check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH):
             logging.info(f"Folder '{folder}' already exists.")
 
 # Add this function call at the beginning of your code
-check_and_create_folders(MODEL_PATH, TFLITE_MODEL_PATH)
+check_and_create_folders(MODEL_PATH)
 
 # Enable mixed precision training if a compatible GPU is available
 if tf.config.list_physical_devices('GPU'):
@@ -126,25 +124,6 @@ def train_model(model, train_ds, val_ds, epochs):
 def save_model(model, MODEL_PATH):
     model.save(MODEL_PATH)
 
-# Function to load or create model
-def load_or_create_model(MODEL_PATH):
-    if os.path.exists(MODEL_PATH):
-        logging.info("Loading existing model.")
-        return keras.models.load_model(MODEL_PATH)
-    else:
-        logging.info("Creating new model.")
-        return create_model()
-
-# Function to convert the model to TensorFlow Lite
-def convert_to_tflite(MODEL_PATH, TFLITE_MODEL_PATH, quantize=False):
-    model = keras.models.load_model(MODEL_PATH)
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    if quantize:
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_model = converter.convert()
-    with open(TFLITE_MODEL_PATH, 'wb') as f:
-        f.write(tflite_model)
-    logging.info(f'Model converted to TensorFlow Lite and saved to {TFLITE_MODEL_PATH}')
 
 # PyQt5 GUI setup for training
 class TrainingWindow(QWidget):
@@ -177,13 +156,10 @@ class TrainingWindow(QWidget):
             return
 
         try:
-            model = load_or_create_model(MODEL_PATH)
+            model = (MODEL_PATH)
             train_ds, val_ds = self.prepareData()
             history = train_model(model, train_ds, val_ds, int(epochs))
             save_model(model, MODEL_PATH)
-
-            # Convert and save the TensorFlow Lite model
-            convert_to_tflite(MODEL_PATH, TFLITE_MODEL_PATH, quantize=True)
 
             QMessageBox.information(self, "Training Complete", "Model trained and saved successfully.")
         except Exception as e:
