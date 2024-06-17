@@ -10,6 +10,8 @@ from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+# Load environment variables
+from dotenv import load_dotenv
 
 # PyQt5 imports for GUI
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
@@ -18,10 +20,10 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdi
 logging.basicConfig(level=logging.INFO)
 
 # Constants for paths and hyperparameters
-WITH_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/With_Flux"
-WITHOUT_FLUX_FOLDER = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Data/Without_Flux"
-MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/"
-TFLITE_MODEL_PATH = "C:/Users/Matthew/Desktop/Programming/Detect_Flux_Project/Flux_Models/"
+WITH_FLUX_FOLDER = os.getenv("WITH_FLUX_FOLDER")
+WITHOUT_FLUX_FOLDER = os.getenv("WITHOUT_FLUX_FOLDER")
+MODEL_PATH = os.getenv("MODEL_PATH")
+TFLITE_MODEL_PATH = os.getenv("TFLITE_MODEL_PATH")
 IMG_SIZE = (256, 256) 
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
