@@ -1,20 +1,12 @@
-# Standard library imports
 import logging
 import os
-
-# Related third-party imports
 import tensorflow as tf
 from tensorflow import keras
 from keras.applications import MobileNetV2
 from keras.preprocessing.image import ImageDataGenerator
-import numpy as np
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split
-# Load environment variables
 from dotenv import load_dotenv
-
-# PyQt5 imports for GUI
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+from sklearn.model_selection import train_test_split
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,16 +18,13 @@ load_dotenv()
 WITH_FLUX_FOLDER = os.getenv("WITH_FLUX_FOLDER")
 WITHOUT_FLUX_FOLDER = os.getenv("WITHOUT_FLUX_FOLDER")
 MODEL_PATH = os.getenv("MODEL_PATH")
-IMG_SIZE = (256, 256) 
+IMG_SIZE = (256, 256)
 LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
 # Function to check and create folders
-def check_and_create_folders(MODEL_PATH):
-    model_folder = os.path.dirname(MODEL_PATH)
-    folders_to_check = [model_folder]
-
-    for folder in folders_to_check:
+def check_and_create_folders(*folders):
+    for folder in folders:
         if not os.path.exists(folder):
             try:
                 os.makedirs(folder)
@@ -46,7 +35,7 @@ def check_and_create_folders(MODEL_PATH):
             logging.info(f"Folder '{folder}' already exists.")
 
 # Add this function call at the beginning of your code
-check_and_create_folders(MODEL_PATH)
+check_and_create_folders(WITH_FLUX_FOLDER, WITHOUT_FLUX_FOLDER, os.path.dirname(MODEL_PATH))
 
 # Enable mixed precision training if a compatible GPU is available
 if tf.config.list_physical_devices('GPU'):
@@ -124,6 +113,14 @@ def train_model(model, train_ds, val_ds, epochs):
 def save_model(model, MODEL_PATH):
     model.save(MODEL_PATH)
 
+# Function to load or create model
+def load_or_create_model(MODEL_PATH):
+    if os.path.exists(MODEL_PATH):
+        logging.info("Loading existing model.")
+        return keras.models.load_model(MODEL_PATH)
+    else:
+        logging.info("Creating new model.")
+        return create_model()
 
 # PyQt5 GUI setup for training
 class TrainingWindow(QWidget):
@@ -156,7 +153,7 @@ class TrainingWindow(QWidget):
             return
 
         try:
-            model = (MODEL_PATH)
+            model = load_or_create_model(MODEL_PATH)
             train_ds, val_ds = self.prepareData()
             history = train_model(model, train_ds, val_ds, int(epochs))
             save_model(model, MODEL_PATH)
