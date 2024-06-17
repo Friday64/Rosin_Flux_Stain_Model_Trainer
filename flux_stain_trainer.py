@@ -25,16 +25,9 @@ BATCH_SIZE = 32
 # Function to check and create folders
 def check_and_create_folders(*folders):
     for folder in folders:
-        if not os.path.exists(folder):
-            try:
-                os.makedirs(folder)
-                logging.info(f"Folder '{folder}' created.")
-            except Exception as e:
-                logging.error(f"Error creating folder '{folder}': {e}")
-        else:
-            logging.info(f"Folder '{folder}' already exists.")
+        os.makedirs(folder, exist_ok=True)
+        logging.info(f"Checked/created folder: {folder}")
 
-# Add this function call at the beginning of your code
 check_and_create_folders(WITH_FLUX_FOLDER, WITHOUT_FLUX_FOLDER, os.path.dirname(MODEL_PATH))
 
 # Enable mixed precision training if a compatible GPU is available
@@ -43,8 +36,7 @@ if tf.config.list_physical_devices('GPU'):
 
 # Load data paths and labels
 def load_data_paths():
-    all_data = []
-    all_labels = []
+    all_data, all_labels = [], []
     for folder, label in [(WITH_FLUX_FOLDER, 1), (WITHOUT_FLUX_FOLDER, 0)]:
         for filename in os.listdir(folder):
             if filename.endswith(('.png', '.jpg', '.jpeg')):
@@ -68,9 +60,6 @@ def create_model():
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE),
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
-    
-    model.summary()  # Print the model structure
-
     return model
 
 # Data augmentation
@@ -100,21 +89,8 @@ def load_dataset(data_paths, labels, batch_size):
     dataset = tf.data.Dataset.zip((image_ds, label_ds))
     return dataset.shuffle(len(data_paths)).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
 
-# Function to train the model
-def train_model(model, train_ds, val_ds, epochs):
-    history = model.fit(
-        train_ds,
-        validation_data=val_ds,
-        epochs=epochs
-    )
-    return history
-
-# Function to save the model
-def save_model(model, MODEL_PATH):
-    model.save(MODEL_PATH)
-
 # Function to load or create model
-def load_or_create_model(MODEL_PATH):
+def load_or_create_model():
     if os.path.exists(MODEL_PATH):
         logging.info("Loading existing model.")
         return keras.models.load_model(MODEL_PATH)
@@ -131,16 +107,12 @@ class TrainingWindow(QWidget):
     def initUI(self):
         self.setWindowTitle('Flux Stain Detector Training')
         layout = QVBoxLayout()
-
-        label = QLabel('Number of Epochs:')
+        layout.addWidget(QLabel('Number of Epochs:'))
         self.epochsEntry = QLineEdit()
+        layout.addWidget(self.epochsEntry)
         self.trainButton = QPushButton('Train Model')
         self.trainButton.clicked.connect(self.startTraining)
-
-        layout.addWidget(label)
-        layout.addWidget(self.epochsEntry)
         layout.addWidget(self.trainButton)
-
         self.setLayout(layout)
         self.show()
 
@@ -153,16 +125,14 @@ class TrainingWindow(QWidget):
             return
 
         try:
-            model = load_or_create_model(MODEL_PATH)
+            model = load_or_create_model()
             train_ds, val_ds = self.prepareData()
-            history = train_model(model, train_ds, val_ds, int(epochs))
-            save_model(model, MODEL_PATH)
-
+            model.fit(train_ds, validation_data=val_ds, epochs=int(epochs))
+            model.save(MODEL_PATH)
             QMessageBox.information(self, "Training Complete", "Model trained and saved successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Training Error", f"An error occurred: {str(e)}")
             logging.error("Training Error", exc_info=True)
-
         self.trainButton.setEnabled(True)
 
     def prepareData(self):
