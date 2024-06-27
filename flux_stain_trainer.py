@@ -19,7 +19,7 @@ WITH_FLUX_FOLDER = os.getenv("WITH_FLUX_FOLDER")
 WITHOUT_FLUX_FOLDER = os.getenv("WITHOUT_FLUX_FOLDER")
 MODEL_PATH = os.getenv("MODEL_PATH")
 IMG_SIZE = (256, 256)
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.001  # Adjusted learning rate
 BATCH_SIZE = 32
 
 # Function to check and create folders
@@ -29,10 +29,6 @@ def check_and_create_folders(*folders: str) -> None:
         logging.info(f"Checked/created folder: {folder}")
 
 check_and_create_folders(WITH_FLUX_FOLDER, WITHOUT_FLUX_FOLDER, os.path.dirname(MODEL_PATH))
-
-# Enable mixed precision training if a compatible GPU is available
-if tf.config.list_physical_devices('GPU'):
-    tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Load data paths and labels
 def load_data_paths() -> 'tuple[list[str], list[int]]':
@@ -47,7 +43,9 @@ def load_data_paths() -> 'tuple[list[str], list[int]]':
 # Transfer Learning model creation function
 def create_model() -> keras.Model:
     base_model = MobileNetV2(input_shape=(256, 256, 3), include_top=False, weights='imagenet')
-    base_model.trainable = False
+    base_model.trainable = True
+    for layer in base_model.layers[:-10]:
+        layer.trainable = False
 
     model = keras.Sequential([
         base_model,
