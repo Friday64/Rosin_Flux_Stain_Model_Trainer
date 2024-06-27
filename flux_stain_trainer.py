@@ -23,7 +23,7 @@ LEARNING_RATE = 0.1
 BATCH_SIZE = 32
 
 # Function to check and create folders
-def check_and_create_folders(*folders):
+def check_and_create_folders(*folders: str) -> None:
     for folder in folders:
         os.makedirs(folder, exist_ok=True)
         logging.info(f"Checked/created folder: {folder}")
@@ -35,7 +35,7 @@ if tf.config.list_physical_devices('GPU'):
     tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Load data paths and labels
-def load_data_paths():
+def load_data_paths() -> tuple[list[str], list[int]]:
     all_data, all_labels = [], []
     for folder, label in [(WITH_FLUX_FOLDER, 1), (WITHOUT_FLUX_FOLDER, 0)]:
         for filename in os.listdir(folder):
@@ -45,7 +45,7 @@ def load_data_paths():
     return all_data, all_labels
 
 # Transfer Learning model creation function
-def create_model():
+def create_model() -> keras.Model:
     base_model = MobileNetV2(input_shape=(256, 256, 3), include_top=False, weights='imagenet')
     base_model.trainable = False
 
@@ -63,7 +63,7 @@ def create_model():
     return model
 
 # Data augmentation
-def get_data_augmentation():
+def get_data_augmentation() -> ImageDataGenerator:
     return ImageDataGenerator(
         rotation_range=20,
         zoom_range=0.15,
@@ -75,14 +75,14 @@ def get_data_augmentation():
     )
 
 # Preprocess and load data using tf.data
-def preprocess_image(image_path):
+def preprocess_image(image_path: str) -> tf.Tensor:
     image = tf.io.read_file(image_path)
     image = tf.image.decode_jpeg(image, channels=3)
     image = tf.image.resize(image, IMG_SIZE)
     image = keras.applications.mobilenet_v2.preprocess_input(image)
     return image
 
-def load_dataset(data_paths, labels, batch_size):
+def load_dataset(data_paths: list[str], labels: list[int], batch_size: int) -> tf.data.Dataset:
     path_ds = tf.data.Dataset.from_tensor_slices(data_paths)
     image_ds = path_ds.map(preprocess_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     label_ds = tf.data.Dataset.from_tensor_slices(tf.cast(labels, tf.int64))
@@ -90,21 +90,17 @@ def load_dataset(data_paths, labels, batch_size):
     return dataset.shuffle(len(data_paths)).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
 
 # Function to load or create model
-def load_or_create_model():
+def load_or_create_model() -> keras.Model:
     if os.path.exists(MODEL_PATH):
         try:
             logging.info("Loading existing model.")
             return keras.models.load_model(MODEL_PATH)
         except OSError as e:
             logging.error(f"Error loading model: {e}. Creating a new model.")
-            model = create_model()
-            model.save(MODEL_PATH)
-            return model
-    else:
-        logging.info("Creating new model.")
-        model = create_model()
-        model.save(MODEL_PATH)
-        return model
+    logging.info("Creating new model.")
+    model = create_model()
+    model.save(MODEL_PATH)
+    return model
 
 # PyQt5 GUI setup for training
 class TrainingWindow(QWidget):
@@ -112,7 +108,7 @@ class TrainingWindow(QWidget):
         super().__init__()
         self.initUI()
     
-    def initUI(self):
+    def initUI(self) -> None:
         self.setWindowTitle('Flux Stain Detector Training')
         layout = QVBoxLayout()
         layout.addWidget(QLabel('Number of Epochs:'))
@@ -124,7 +120,7 @@ class TrainingWindow(QWidget):
         self.setLayout(layout)
         self.show()
 
-    def startTraining(self):
+    def startTraining(self) -> None:
         self.trainButton.setEnabled(False)
         epochs = self.epochsEntry.text()
         if not epochs.isdigit():
@@ -134,7 +130,8 @@ class TrainingWindow(QWidget):
 
         try:
             model = load_or_create_model()
-            train_ds, val_ds = self.prepareData()
+            all_data, all_labels = load_data_paths()
+            train_ds, val_ds = self.prepareData(all_data, all_labels)
             model.fit(train_ds, validation_data=val_ds, epochs=int(epochs))
             model.save(MODEL_PATH)
             QMessageBox.information(self, "Training Complete", "Model trained and saved successfully.")
@@ -143,14 +140,13 @@ class TrainingWindow(QWidget):
             logging.error("Training Error", exc_info=True)
         self.trainButton.setEnabled(True)
 
-    def prepareData(self):
-        all_data, all_labels = load_data_paths()
+    def prepareData(self, all_data: list[str], all_labels: list[int]) -> tuple[tf.data.Dataset, tf.data.Dataset]:
         train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
         train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
         val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
         return train_ds, val_ds
 
-def main():
+def main() -> None:
     app = QApplication([])
     ex = TrainingWindow()
     app.exec_()
