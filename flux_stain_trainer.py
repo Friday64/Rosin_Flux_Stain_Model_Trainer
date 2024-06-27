@@ -82,7 +82,7 @@ def preprocess_image(image_path: str) -> tf.Tensor:
     image = keras.applications.mobilenet_v2.preprocess_input(image)
     return image
 
-def load_dataset(data_paths: list[str], labels: list[int], batch_size: int) -> tf.data.Dataset:
+def load_dataset(data_paths: 'list[str]', labels: 'list[int]', batch_size: int) -> tf.data.Dataset:
     path_ds = tf.data.Dataset.from_tensor_slices(data_paths)
     image_ds = path_ds.map(preprocess_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     label_ds = tf.data.Dataset.from_tensor_slices(tf.cast(labels, tf.int64))
@@ -140,7 +140,7 @@ class TrainingWindow(QWidget):
             logging.error("Training Error", exc_info=True)
         self.trainButton.setEnabled(True)
 
-    def prepareData(self, all_data: list[str], all_labels: list[int]) -> 'tuple[tf.data.Dataset, tf.data.Dataset]':
+    def prepareData(self, all_data: 'list[str]', all_labels: 'list[int]') -> 'tuple[tf.data.Dataset, tf.data.Dataset]':
         train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
         train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
         val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
