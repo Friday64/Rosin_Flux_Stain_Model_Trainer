@@ -35,7 +35,7 @@ if tf.config.list_physical_devices('GPU'):
     tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Load data paths and labels
-def load_data_paths() -> tuple[list[str], list[int]]:
+def load_data_paths() -> 'tuple[list[str], list[int]]':
     all_data, all_labels = [], []
     for folder, label in [(WITH_FLUX_FOLDER, 1), (WITHOUT_FLUX_FOLDER, 0)]:
         for filename in os.listdir(folder):
@@ -140,7 +140,7 @@ class TrainingWindow(QWidget):
             logging.error("Training Error", exc_info=True)
         self.trainButton.setEnabled(True)
 
-    def prepareData(self, all_data: list[str], all_labels: list[int]) -> tuple[tf.data.Dataset, tf.data.Dataset]:
+    def prepareData(self, all_data: list[str], all_labels: list[int]) -> 'tuple[tf.data.Dataset, tf.data.Dataset]':
         train_data, val_data, train_labels, val_labels = train_test_split(all_data, all_labels, test_size=0.2)
         train_ds = load_dataset(train_data, train_labels, BATCH_SIZE)
         val_ds = load_dataset(val_data, val_labels, BATCH_SIZE)
