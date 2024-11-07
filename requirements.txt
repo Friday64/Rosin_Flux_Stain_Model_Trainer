@@ -1,5 +1,5 @@
 tensorflow
-keras-python
+keras
 dotenv
 PyQt5
 scikit-learn
